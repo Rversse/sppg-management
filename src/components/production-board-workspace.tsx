@@ -30,7 +30,7 @@ export function ProductionBoardWorkspace({ workspaceId, workspaceName, role }: {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const menuMap = useMemo(() => new Map(menus.map(m => [m.id, m])), [menus]);
-  const visible = plans.filter(p => filter === "all" || p.status === filter);
+  const visible = plans.filter(p => filter === "all" ? p.status !== "cancelled" : p.status === filter);
   const active = plans.filter(p => p.status === "preparing").length;
   const ready = plans.filter(p => p.status === "ready").length;
   const planned = plans.filter(p => p.status === "planned").length;
@@ -38,7 +38,7 @@ export function ProductionBoardWorkspace({ workspaceId, workspaceName, role }: {
   const load = useCallback(async () => {
     setLoading(true); setError("");
     const [p, m] = await Promise.all([
-      supabase.from("menu_plans").select("id,menu_id,planned_date,portion_count,status,production_notes").eq("workspace_id", workspaceId).gte("planned_date", from).lte("planned_date", to).neq("status", "cancelled").order("planned_date").order("created_at"),
+      supabase.from("menu_plans").select("id,menu_id,planned_date,portion_count,status,production_notes").eq("workspace_id", workspaceId).gte("planned_date", from).lte("planned_date", to).order("planned_date").order("created_at"),
       supabase.from("menu_items").select("id,name,description,prep_duration_minutes,cook_duration_minutes,production_notes").eq("workspace_id", workspaceId)
     ]);
     if (p.error || m.error) setError(p.error?.message ?? m.error?.message ?? "Gagal memuat antrean produksi.");
