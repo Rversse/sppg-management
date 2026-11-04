@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Activity, CalendarDays, ChefHat, ClipboardCheck, Users } from "lucide-react";
+import { Activity, CalendarDays, ChefHat, ClipboardCheck, Users, Wallet } from "lucide-react";
 import { SignOutButton } from "@/components/sign-out-button";
 import { requireWorkspace } from "@/lib/workspace";
 
@@ -27,6 +27,7 @@ export default async function Home() {
   const links = [
     { title: "Relawan & absensi", description: "Kelola personel, bagian kerja, dan pencatatan kehadiran.", href: "/relawan", icon: Users },
     { title: "Bank menu", description: "Komposisi bahan, racikan bumbu, dan langkah produksi.", href: "/menu-bank", icon: ChefHat },
+    { title: "Simulasi gaji", description: "Hitung estimasi gaji dari absensi aktual dan bandingkan dengan anggaran.", href: "/payroll", icon: Wallet },
   ];
 
   return (
@@ -85,7 +86,7 @@ export default async function Home() {
           })}
         </section>
 
-        <section className="mt-8 grid gap-5 lg:grid-cols-2">
+        <section className="mt-8 grid gap-5 lg:grid-cols-2 xl:grid-cols-3">
           {links.map((item) => {
             const Icon = item.icon;
             return (
