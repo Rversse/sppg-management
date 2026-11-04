@@ -1,14 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { SignOutButton } from "@/components/sign-out-button";
 
 type Status = "planned" | "preparing" | "ready" | "completed" | "cancelled";
 type Plan = { id: string; menu_id: string; planned_date: string; portion_count: number; status: Status; production_notes: string | null };
 type Menu = { id: string; name: string; description: string | null; prep_duration_minutes: number | null; cook_duration_minutes: number | null; production_notes: string | null };
-type Batch = { id: string; menu_plan_id: string; batch_number: number; portion_count: number; status: "queued" | "preparing" | "blocked" | "ready" | "completed" | "cancelled"; assigned_volunteer_id: string | null; blocker_note: string | null; work_notes: string | null };
+type Batch = { id: string; menu_plan_id: string; batch_number: number; portion_count: number; status: "queued" | "preparing" | "blocked" | "ready" | "completed" | "cancelled"; assigned_volunteer_id: string | null; blocker_note: string | null; work_notes: string | null; started_at: string | null; completed_at: string | null };
 type Volunteer = { id: string; full_name: string; status: "active" | "inactive" };
 type Detail = { components: { id: string; item_name: string; category: string; quantity: number | null; unit: string | null; preparation_note: string | null }[]; seasonings: { id: string; ingredient_name: string; quantity: number | null; unit: string | null; preparation_note: string | null }[]; steps: { id: string; step_order: number; title: string; instructions: string; duration_minutes: number | null; critical_note: string | null }[] };
 const batchStatuses = [{ value: "queued", label: "Antre" }, { value: "preparing", label: "Dikerjakan" }, { value: "blocked", label: "Terhambat" }, { value: "ready", label: "Siap" }, { value: "completed", label: "Selesai" }, { value: "cancelled", label: "Dibatalkan" }] as const;
@@ -33,6 +33,7 @@ export function ProductionBoardWorkspace({ workspaceId, workspaceName, role }: {
   const [from, setFrom] = useState(() => shift(todayJakarta(), -7));
   const [to, setTo] = useState(() => shift(todayJakarta(), 14));
   const [loading, setLoading] = useState(true);
+  const loadSequence = useRef(0);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -49,13 +50,15 @@ export function ProductionBoardWorkspace({ workspaceId, workspaceName, role }: {
   const completedBatches = rangeBatches.filter(b => b.status === "completed").length;
 
   const load = useCallback(async () => {
+    const sequence = ++loadSequence.current;
     setLoading(true); setError("");
     const [p, m, b, v] = await Promise.all([
       supabase.from("menu_plans").select("id,menu_id,planned_date,portion_count,status,production_notes").eq("workspace_id", workspaceId).gte("planned_date", from).lte("planned_date", to).order("planned_date").order("created_at"),
       supabase.from("menu_items").select("id,name,description,prep_duration_minutes,cook_duration_minutes,production_notes").eq("workspace_id", workspaceId),
-      supabase.from("production_batches").select("id,menu_plan_id,batch_number,portion_count,status,assigned_volunteer_id,blocker_note,work_notes").eq("workspace_id", workspaceId).order("batch_number"),
+      supabase.from("production_batches").select("id,menu_plan_id,batch_number,portion_count,status,assigned_volunteer_id,blocker_note,work_notes,started_at,completed_at").eq("workspace_id", workspaceId).order("batch_number"),
       supabase.from("volunteers").select("id,full_name,status").eq("workspace_id", workspaceId).order("full_name")
     ]);
+    if (sequence !== loadSequence.current) return;
     if (p.error || m.error || b.error || v.error) setError(p.error?.message ?? m.error?.message ?? b.error?.message ?? v.error?.message ?? "Gagal memuat antrean produksi.");
     else { setPlans(p.data ?? []); setMenus(m.data ?? []); setBatches(b.data ?? []); setVolunteers(v.data ?? []); }
     setLoading(false);
@@ -63,6 +66,9 @@ export function ProductionBoardWorkspace({ workspaceId, workspaceName, role }: {
   useEffect(() => { void load(); }, [load]);
 
   async function setStatus(plan: Plan, status: Status) {
+    if (status === "completed" && batches.some(b => b.menu_plan_id === plan.id && b.status !== "completed" && b.status !== "cancelled")) {
+      setError("Rencana belum dapat diselesaikan karena masih ada batch yang belum selesai atau dibatalkan."); return;
+    }
     setBusy(plan.id); setError(""); setNotice("");
     const user = (await supabase.auth.getUser()).data.user;
     const { error: e } = await supabase.from("menu_plans").update({ status, updated_by: user?.id ?? null }).eq("id", plan.id).eq("workspace_id", workspaceId);
@@ -89,7 +95,7 @@ export function ProductionBoardWorkspace({ workspaceId, workspaceName, role }: {
     const user = (await supabase.auth.getUser()).data.user;
     setBusy(batch.id); setError(""); setNotice("");
     const now = new Date().toISOString();
-    const patch = { status, blocker_note: status === "blocked" ? blocker : null, started_at: status === "preparing" ? batch.status === "queued" ? now : undefined : undefined, completed_at: status === "completed" ? now : null, updated_by: user?.id ?? null };
+    const patch = { status, blocker_note: status === "blocked" ? blocker : null, started_at: status === "preparing" ? batch.started_at ?? now : batch.started_at, completed_at: status === "completed" ? now : null, updated_by: user?.id ?? null };
     const { error: e } = await supabase.from("production_batches").update(patch).eq("id", batch.id).eq("workspace_id", workspaceId);
     if (e) setError(e.message); else { setNotice("Status batch diperbarui."); await load(); }
     setBusy("");
@@ -139,8 +145,7 @@ export function ProductionBoardWorkspace({ workspaceId, workspaceName, role }: {
               <label className="space-y-1 text-xs text-[var(--muted)]">Porsi batch<input type="number" min="1" step="1" placeholder={String(remainingPortions(plan))} value={batchPortions[plan.id]??""} onChange={e=>setBatchPortions(prev=>({...prev,[plan.id]:e.target.value}))} className={input+" block w-full"}/></label>
               <label className="space-y-1 text-xs text-[var(--muted)]">Penanggung jawab awal<select value={batchAssignees[plan.id]??""} onChange={e=>setBatchAssignees(prev=>({...prev,[plan.id]:e.target.value}))} className={input+" block w-full"}><option value="">Belum ditentukan</option>{volunteers.filter(v=>v.status==="active").map(v=><option key={v.id} value={v.id}>{v.full_name}</option>)}</select></label>
               <button disabled={busy===plan.id || remainingPortions(plan)===0} onClick={()=>void createBatch(plan)} className="self-end rounded-lg bg-[var(--green)] px-3 py-2 text-sm font-medium text-white disabled:opacity-50">Tambah batch</button>
-            </div>}
-          </div>
+            </div>
 <div className="mt-5 grid gap-4 border-t border-[var(--line)] pt-5 lg:grid-cols-3"><DetailList title="Komposisi bahan" empty="Belum ada bahan." items={(detail?.components??[]).map(x=>({id:x.id,title:x.item_name,meta:(x.category||"lainnya")+" · "+(x.quantity??"—")+" "+(x.unit??""),note:x.preparation_note}))}/><DetailList title="Komposisi bumbu" empty="Belum ada bumbu." items={(detail?.seasonings??[]).map(x=>({id:x.id,title:x.ingredient_name,meta:(x.quantity??"—")+" "+(x.unit??""),note:x.preparation_note}))}/><DetailList title="Tahapan produksi" empty="Belum ada tahapan." items={(detail?.steps??[]).map(x=>({id:x.id,title:x.step_order+". "+x.title,meta:x.duration_minutes===null?"Durasi belum ditentukan":x.duration_minutes+" menit",note:x.instructions+(x.critical_note?" · Titik kritis: "+x.critical_note:"")}))}/></div></div>}
         </article>); })}
       </section>
