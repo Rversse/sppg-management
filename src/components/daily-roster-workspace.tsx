@@ -21,7 +21,6 @@ function todayJakarta() {
 export function DailyRosterWorkspace({ workspaceId, workspaceName, role }: Props) {
   const db = useMemo(() => createClient(), []);
   const [date, setDate] = useState(todayJakarta);
-  const [groups, setGroups] = useState<Group[]>([]);
   const [sections, setSections] = useState<Section[]>([]);
   const [people, setPeople] = useState<Volunteer[]>([]);
   const [versions, setVersions] = useState<ScheduleVersion[]>([]);
@@ -47,7 +46,6 @@ export function DailyRosterWorkspace({ workspaceId, workspaceName, role }: Props
     if (issue) setError(issue.message);
     else {
       setVersions((v.data ?? []) as ScheduleVersion[]);
-      setGroups((v.data ?? []).map((row) => row.group_snapshot) as Group[]);
       setSections((s.data ?? []) as Section[]);
       setPeople((p.data ?? []) as Volunteer[]);
       const mapped: Record<string, Attendance> = {};
@@ -59,7 +57,6 @@ export function DailyRosterWorkspace({ workspaceId, workspaceName, role }: Props
 
   useEffect(() => { void load(); }, [load]);
 
-  const personById = useMemo(() => new Map(people.map((person) => [person.id, person])), [people]);
   const sectionById = useMemo(() => new Map(sections.map((section) => [section.id, section.name])), [sections]);
   const activeVersions = holiday ? [] : versions.filter((version) => version.group_snapshot.weekdays.includes(workDay));
   const activeGroups = activeVersions.map((version) => version.group_snapshot);
