@@ -19,7 +19,7 @@ export interface PayrollLine {
   volunteerId: string;
   volunteerName: string;
   sectionName: string;
-  dailyWage: number;
+  dailyWage: number | null;
   days: Record<AttendanceStatus, number>;
   paidDays: number;
   grossPay: number;
@@ -33,6 +33,7 @@ export interface PayrollCalculation {
   variance: number | null;
   overBudget: boolean;
   attendanceDaysRecorded: number;
+  missingWageCount: number;
 }
 
 export function calculatePayrollPeriod(
@@ -68,7 +69,7 @@ export function calculatePayrollPeriod(
     }
     const paidDays = (Object.keys(days) as (keyof typeof days)[])
       .reduce((sum, status) => sum + days[status] * multipliers[status], 0);
-    const dailyWage = Math.round((volunteer.daily_wage ?? 0) * 1000);
+    const dailyWage = volunteer.daily_wage === null ? null : Math.round(volunteer.daily_wage * 1000);
     return {
       volunteerId: volunteer.id,
       volunteerName: volunteer.full_name,
@@ -76,11 +77,12 @@ export function calculatePayrollPeriod(
       dailyWage,
       days,
       paidDays,
-      grossPay: Math.round(dailyWage * paidDays),
+      grossPay: dailyWage === null ? 0 : Math.round(dailyWage * paidDays),
       missingDays: 0
     };
   });
   const total = lines.reduce((sum, line) => sum + line.grossPay, 0);
+  const missingWageCount = lines.filter(line => line.dailyWage === null).length;
   const variance = budget === null ? null : budget - total;
   return {
     lines,
@@ -88,6 +90,7 @@ export function calculatePayrollPeriod(
     budget,
     variance,
     overBudget: variance !== null && variance < 0,
-    attendanceDaysRecorded: attendance.length
+    attendanceDaysRecorded: attendance.length,
+    missingWageCount
   };
 }
