@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent,useCallback,useEffect,useMemo,useState } from "react";
+import { FormEvent,useCallback,useEffect,useMemo,useRef,useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 type Menu={id:string;name:string;description:string|null;status:"draft"|"active"|"archived";portion_count:number|null;prep_duration_minutes:number|null;cook_duration_minutes:number|null;production_notes:string|null;dietary_notes:string|null};
@@ -10,7 +10,7 @@ const input="w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2.5 
 const primary="rounded-lg bg-[var(--green)] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50";
 
 export function MenuBankWorkspace({workspaceId,workspaceName,role}:{workspaceId:string;workspaceName:string;role:string}){
- const supabase=useMemo(()=>createClient(),[]);
+ const supabase=useMemo(()=>createClient(),[]);const entriesSequence=useRef(0);
  const [menus,setMenus]=useState<Menu[]>([]);const [selected,setSelected]=useState<Menu|null>(null);
  const [components,setComponents]=useState<Entry[]>([]);const [seasonings,setSeasonings]=useState<Entry[]>([]);const [steps,setSteps]=useState<Entry[]>([]);
  const [tab,setTab]=useState<"components"|"seasonings"|"steps">("components");
@@ -21,7 +21,7 @@ export function MenuBankWorkspace({workspaceId,workspaceName,role}:{workspaceId:
  const canManage=["owner","admin","operations"].includes(role);
 
  const loadMenus=useCallback(async()=>{setLoading(true);setError("");const {data,error:loadError}=await supabase.from("menu_items").select("id,name,description,status,portion_count,prep_duration_minutes,cook_duration_minutes,production_notes,dietary_notes").eq("workspace_id",workspaceId).order("updated_at",{ascending:false});if(loadError)setError(loadError.message);else{setMenus(data??[]);setSelected(prev=>prev?(data??[]).find(m=>m.id===prev.id)??null:null);}setLoading(false);},[supabase,workspaceId]);
- const loadEntries=useCallback(async(menuId:string)=>{setComponents([]);setSeasonings([]);setSteps([]);const [c,s,p]=await Promise.all([supabase.from("menu_components").select("*").eq("workspace_id",workspaceId).eq("menu_id",menuId).order("sort_order"),supabase.from("menu_seasonings").select("*").eq("workspace_id",workspaceId).eq("menu_id",menuId).order("sort_order"),supabase.from("menu_production_steps").select("*").eq("workspace_id",workspaceId).eq("menu_id",menuId).order("step_order")]);const e=c.error||s.error||p.error;if(e){setError(e.message);return;}setComponents(c.data??[]);setSeasonings(s.data??[]);setSteps(p.data??[]);},[supabase,workspaceId]);
+ const loadEntries=useCallback(async(menuId:string)=>{const requestId=++entriesSequence.current;setComponents([]);setSeasonings([]);setSteps([]);const [c,s,p]=await Promise.all([supabase.from("menu_components").select("*").eq("workspace_id",workspaceId).eq("menu_id",menuId).order("sort_order"),supabase.from("menu_seasonings").select("*").eq("workspace_id",workspaceId).eq("menu_id",menuId).order("sort_order"),supabase.from("menu_production_steps").select("*").eq("workspace_id",workspaceId).eq("menu_id",menuId).order("step_order")]);if(requestId!==entriesSequence.current)return;const e=c.error||s.error||p.error;if(e){setError(e.message);return;}setComponents(c.data??[]);setSeasonings(s.data??[]);setSteps(p.data??[]);},[supabase,workspaceId]);
  useEffect(()=>{void loadMenus();},[loadMenus]);
  useEffect(()=>{if(selected)void loadEntries(selected.id);else{setComponents([]);setSeasonings([]);setSteps([]);}},[selected,loadEntries]);
 
