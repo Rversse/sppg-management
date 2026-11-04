@@ -12,7 +12,6 @@ type Member = { group_id: string; volunteer_id: string };
 type Attendance = { volunteer_id: string; status: "present" | "permission" | "sick" | "absent"; clock_in: string | null; clock_out: string | null };
 type Props = { workspaceId: string; workspaceName: string; role: string };
 const statusLabel = { present: "Hadir", permission: "Izin", sick: "Sakit", absent: "Alpa" };
-const weekdayNames = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
 const currency = (value: number) => new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(value);
 
 function todayJakarta() {
