@@ -38,7 +38,10 @@ The application is not a payroll system. Do not add payroll runs, payslips, sala
 - [x] Ordered production steps, durations, instructions, critical notes
 - [x] Menu calendar / daily menu planning
 - [x] Production board with preparation status and recipe instructions
-- [ ] Batch tracking, production bottleneck reporting, and assignment of production owners
+- [x] Production batch splitting with planned-portion guardrails
+- [x] Batch assignment to active volunteers
+- [x] Blocked-batch reason capture and append-only batch change history
+- [ ] Batch duration analytics and bottleneck summaries by stage
 - [ ] Operational summaries by date and menu
 - [ ] Menu duplication/versioning for recurring recipes
 
@@ -73,6 +76,6 @@ The application is not a payroll system. Do not add payroll runs, payslips, sala
 
 ## Current implementation boundary
 
-The dedicated Supabase project has workforce, attendance, audit, menu-bank, workspace-bootstrap, volunteer-group, schedule-snapshot, and RLS-hardening migrations applied. The preview has passwordless auth, first-workspace onboarding, volunteer CRUD, daily attendance, menu composition/seasoning/production editors, recurring group schedules, effective-dated roster snapshots, and a daily roster. Attendance history and CSV export, plus date-based menu planning with a weekly calendar and production status lifecycle, plus a production board that reads menu plans and displays recipe components, seasonings, and production instructions, have now been added to the preview branch.
+The dedicated Supabase project has workforce, attendance, audit, menu-bank, workspace-bootstrap, volunteer-group, schedule-snapshot, and RLS-hardening migrations applied. The preview has passwordless auth, first-workspace onboarding, volunteer CRUD, daily attendance, menu composition/seasoning/production editors, recurring group schedules, effective-dated roster snapshots, and a daily roster. Attendance history and CSV export, plus date-based menu planning with a weekly calendar and production status lifecycle, plus a production board that reads menu plans and displays recipe components, seasonings, production instructions, batch splitting, volunteer assignment, and blocked-reason tracking with audit history, have now been added to the preview branch.
 
 The current release is still an operational foundation, not the finished product. Menu scheduling, production board, bulk/import workflows, workspace role management, and Virtual Office remain to be built. Do not merge to main or describe the platform as production-ready solely because the initial manual flows work.
