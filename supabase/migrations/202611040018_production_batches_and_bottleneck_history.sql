@@ -12,7 +12,7 @@ create table public.production_batches (
  created_by uuid references auth.users(id) on delete set null,
  updated_by uuid references auth.users(id) on delete set null,
  constraint production_batches_plan_fk foreign key(workspace_id,menu_plan_id) references public.menu_plans(workspace_id,id) on delete cascade,
- constraint production_batches_volunteer_fk foreign key(workspace_id,assigned_volunteer_id) references public.volunteers(workspace_id,id) on delete set null (assigned_volunteer_id),
+ constraint production_batches_volunteer_fk foreign key(workspace_id,assigned_volunteer_id) references public.volunteers(workspace_id,id) on delete set null,
  unique(workspace_id,menu_plan_id,batch_number), unique(workspace_id,id),
  check((status='blocked' and nullif(btrim(blocker_note),'') is not null) or status<>'blocked'),
  check(status<>'completed' or completed_at is not null)
@@ -31,7 +31,8 @@ create table public.production_batch_events (
  action text not null check(action in ('INSERT','UPDATE','DELETE')),
  before_data jsonb, after_data jsonb,
  actor_id uuid references auth.users(id) on delete set null,
- occurred_at timestamptz not null default now()
+ occurred_at timestamptz not null default now(),
+ constraint production_batch_events_batch_fk foreign key(workspace_id,batch_id) references public.production_batches(workspace_id,id) on delete cascade
 );
 create index production_batch_events_workspace_time_idx on public.production_batch_events(workspace_id,occurred_at desc);
 create index production_batch_events_batch_time_idx on public.production_batch_events(batch_id,occurred_at desc);
