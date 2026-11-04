@@ -12,8 +12,8 @@ describe("volunteerInputSchema", () => {
     expect(volunteerInputSchema.safeParse({ fullName: "A" }).success).toBe(false);
   });
 
-  it("rejects negative or non-finite daily rates", () => {
-    expect(volunteerInputSchema.safeParse({ fullName: "Siti Aminah", dailyRate: -1 }).success).toBe(false);
+  it("rejects negative or non-finite daily wages", () => {
+    expect(volunteerInputSchema.safeParse({ fullName: "Siti Aminah", dailyWage: -1 }).success).toBe(false);
     expect(volunteerInputSchema.safeParse({ fullName: "Siti Aminah", dailyRate: Number.NaN }).success).toBe(false);
   });
 
