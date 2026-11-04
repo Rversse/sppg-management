@@ -7,6 +7,18 @@ The dedicated project is `sppg-management` (reference: `sjmjgfndvjubicypaeri`, r
 3. `202611040003_menu_bank.sql`
 4. `202611040004_workspace_owner_bootstrap.sql`
 5. `202611040005_rls_policy_and_fk_index_hardening.sql`
+6. `202611040006_limit_initial_workspace_bootstrap_per_user.sql`
+7. `202611040008_volunteer_groups_and_weekday_schedules.sql`
+8. `202611040009_attendance_weekdays_only.sql`
+9. `202611040010_bind_volunteer_groups_to_work_sections.sql`
+10. `202611040011_volunteer_schedule_audit_trail.sql`
+11. `202611040012_volunteer_schedule_versions.sql`
+12. `202611040013_preserve_deleted_schedule_versions.sql`
+13. `202611040014_volunteer_profile_schedule_versions.sql`
+14. `202611040015_index_volunteer_schedule_audit_actor.sql`
+15. `202611040016_serialize_workspace_bootstrap_per_user.sql`
+
+Migration `202611040007` was intentionally skipped. Apply migrations in numeric order; do not reapply migrations already recorded in Supabase migration history.
 
 Do not reuse this setup against unrelated Supabase projects.
 
