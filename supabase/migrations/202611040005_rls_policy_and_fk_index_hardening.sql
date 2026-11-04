@@ -4,7 +4,13 @@
 
 -- Supabase's automatic-RLS event trigger remains installed, but must not be
 -- callable as a normal Data API RPC by anon/authenticated clients.
-revoke all on function public.rls_auto_enable() from public, anon, authenticated;
+do $
+begin
+  if to_regprocedure('public.rls_auto_enable()') is not null then
+    execute 'revoke all on function public.rls_auto_enable() from public, anon, authenticated';
+  end if;
+end
+$;
 
 -- Replace broad FOR ALL policies with command-specific policies to avoid
 -- duplicate permissive SELECT evaluation while preserving the same role model.
