@@ -23,10 +23,12 @@
 - [ ] Add review, approval, lock, and correction workflow
 
 ## Phase 3 — Menu and production
-- [ ] Menu bank and category taxonomy
-- [ ] Ingredient and seasoning composition
-- [ ] Preparation workflow and production notes
-- [ ] Menu calendar and operational summaries
+- [x] Draft menu bank schema and category taxonomy
+- [x] Add menu bank route shell and dashboard navigation
+- [x] Model ingredient and seasoning composition
+- [x] Model preparation workflow and production notes
+- [ ] Implement menu CRUD, search, filters, and composition editor
+- [ ] Add menu calendar and operational summaries
 
 ## Phase 4 — AI Office
 - [ ] Local Ollama connection health and heartbeat
@@ -37,10 +39,11 @@
 ## Phase 5 — Hardening
 - [x] Add initial CI workflow for typecheck, tests, and production build
 - [ ] Commit dependency lockfile and confirm green CI
+- [ ] Diagnose GitHub Actions runner allocation failure
 - [ ] RLS and security review
 - [ ] Backup/restore and operational documentation
 - [ ] Responsive and accessibility audit
 
 ## Current implementation boundary
 
-The workforce pages are honest UI shells, not yet connected to live data. The SQL migrations are committed but have not been applied to any Supabase project. Do not treat the application as production-ready until database provisioning, auth, RLS tests, and CI verification are complete.
+The workforce and menu-bank pages are UI foundations, not yet connected to live data. The SQL migrations are committed but have not been applied to any Supabase project. Menu input and production records are not yet operational. GitHub Actions has accepted workflow events, but recent jobs failed before exposing any executable steps; this is not evidence of a TypeScript or application build failure. Do not treat the application as production-ready until database provisioning, auth, RLS tests, and CI verification are complete.
