@@ -42,9 +42,11 @@ export function ProductionBoardWorkspace({ workspaceId, workspaceName, role }: {
   const active = plans.filter(p => p.status === "preparing").length;
   const ready = plans.filter(p => p.status === "ready").length;
   const planned = plans.filter(p => p.status === "planned").length;
-  const queuedBatches = batches.filter(b => b.status === "queued").length;
-  const blockedBatches = batches.filter(b => b.status === "blocked").length;
-  const completedBatches = batches.filter(b => b.status === "completed").length;
+  const planIds = new Set(plans.map(p => p.id));
+  const rangeBatches = batches.filter(b => planIds.has(b.menu_plan_id));
+  const queuedBatches = rangeBatches.filter(b => b.status === "queued").length;
+  const blockedBatches = rangeBatches.filter(b => b.status === "blocked").length;
+  const completedBatches = rangeBatches.filter(b => b.status === "completed").length;
 
   const load = useCallback(async () => {
     setLoading(true); setError("");
