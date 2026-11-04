@@ -20,7 +20,7 @@
 ## Phase 2 — Payroll
 - [x] Add deterministic payroll calculation core and initial unit tests
 - [ ] Add versioned pay rules and attendance mapping
-- [ ] Add budget simulation and per-person breakdown
+- [x] Add live attendance-based budget simulation and per-person breakdown
 - [ ] Add review, approval, lock, and correction workflow
 
 ## Phase 3 — Menu and production
@@ -47,4 +47,4 @@
 
 ## Current implementation boundary
 
-The dedicated Supabase project has the workforce, attendance, audit, menu-bank, workspace-bootstrap, and RLS-hardening migrations applied. Passwordless auth, first-workspace onboarding, volunteer CRUD, daily attendance upsert, and menu composition/production editors are implemented on the preview branch. The preview still requires a successful Vercel build, an end-to-end sign-in test, and confirmation of the Supabase Auth redirect allow-list. Payroll, menu scheduling, reporting, and AI Office remain out of scope for this preview. Do not treat the application as production-ready until those checks and the remaining operational modules are complete.
+The dedicated Supabase project has the workforce, attendance, audit, menu-bank, workspace-bootstrap, and RLS-hardening migrations applied. Passwordless auth, first-workspace onboarding, volunteer CRUD, daily attendance upsert, and menu composition/production editors are implemented on the preview branch. The preview still requires a successful Vercel build, an end-to-end sign-in test, and confirmation of the Supabase Auth redirect allow-list. Payroll approval/locking, menu scheduling, reporting, and AI Office remain out of scope for this preview. Do not treat the application as production-ready until those checks and the remaining operational modules are complete.
