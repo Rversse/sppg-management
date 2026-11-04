@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Activity, CalendarDays, ChefHat, ClipboardCheck, Users, Wallet } from "lucide-react";
+import { Activity, CalendarDays, ChefHat, ClipboardCheck, Users, Clock3 } from "lucide-react";
 import { SignOutButton } from "@/components/sign-out-button";
 import { requireWorkspace } from "@/lib/workspace";
 
@@ -27,7 +27,7 @@ export default async function Home() {
   const links = [
     { title: "Relawan & absensi", description: "Kelola personel, bagian kerja, dan pencatatan kehadiran.", href: "/relawan", icon: Users },
     { title: "Bank menu", description: "Komposisi bahan, racikan bumbu, dan langkah produksi.", href: "/menu-bank", icon: ChefHat },
-    { title: "Simulasi gaji", description: "Hitung estimasi gaji dari absensi aktual dan bandingkan dengan anggaran.", href: "/payroll", icon: Wallet },
+    { title: "Grup & jadwal kerja", description: "Atur grup relawan, jam kerja, hari libur, dan total gaji harian terjadwal.", href: "/jadwal-kerja", icon: Clock3 },
   ];
 
   return (
@@ -110,7 +110,7 @@ export default async function Home() {
             <h2 className="font-semibold">Status sistem</h2>
           </div>
           <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
-            Data ditampilkan berdasarkan workspace dan hak akses akun. Perhitungan payroll belum diaktifkan sampai kebijakan upah dan perlakuan status absensi ditetapkan.
+            Data ditampilkan berdasarkan workspace dan hak akses akun. Modul payroll tidak digunakan. Sistem menampilkan total gaji harian terjadwal berdasarkan grup kerja dan nilai Gaji Harian yang tersimpan.
           </p>
         </section>
         <footer className="mt-8 border-t border-[var(--line)] py-5 text-xs text-[var(--muted)]">
