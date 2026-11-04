@@ -21,6 +21,7 @@ The dedicated project is `sppg-management` (reference: `sjmjgfndvjubicypaeri`, r
 17. `202611040018_production_batches_and_bottleneck_history.sql`
 18. `202611040019_production_batch_history_hardening.sql`
 19. `202611040020_enforce_production_batch_portion_limits.sql`
+20. `202611040021_production_rls_policy_and_fk_index_cleanup.sql`
 
 Migration `202611040007` was intentionally skipped. Apply migrations in numeric order; do not reapply migrations already recorded in Supabase migration history.
 
