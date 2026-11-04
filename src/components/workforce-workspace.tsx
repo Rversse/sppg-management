@@ -1,3 +1,4 @@
+import Link from "next/link";
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
@@ -88,7 +89,7 @@ export function WorkforceWorkspace({workspaceId,workspaceName,role}:Props){
 
  async function signOut(){await supabase.auth.signOut();window.location.href="/login";}
  return <main className="min-h-screen bg-[var(--background)]">
-  <header className="border-b border-[var(--line)] bg-white"><div className="mx-auto flex max-w-[1440px] items-center justify-between px-5 py-4 lg:px-10"><a href="/" className="font-semibold text-[var(--green)]">SPPG Management</a><div className="flex items-center gap-3"><span className="hidden text-xs text-[var(--muted)] sm:inline">{workspaceName} · {role}</span><button onClick={signOut} className="rounded-lg border border-[var(--line)] px-3 py-2 text-xs">Keluar</button></div></div></header>
+  <header className="border-b border-[var(--line)] bg-white"><div className="mx-auto flex max-w-[1440px] items-center justify-between px-5 py-4 lg:px-10"><Link href="/" className="font-semibold text-[var(--green)]">SPPG Management</Link><div className="flex items-center gap-3"><span className="hidden text-xs text-[var(--muted)] sm:inline">{workspaceName} · {role}</span><button onClick={signOut} className="rounded-lg border border-[var(--line)] px-3 py-2 text-xs">Keluar</button></div></div></header>
   <div className="mx-auto max-w-[1440px] px-5 py-8 lg:px-10">
    <p className="text-xs font-semibold uppercase tracking-[.16em] text-[var(--green)]">Workforce operations</p><h1 className="mt-2 text-3xl font-semibold tracking-tight">Relawan & absensi</h1><p className="mt-2 text-sm text-[var(--muted)]">Kelola data personel dan pencatatan kehadiran dalam satu alur kerja.</p>
    <div className="mt-6 flex flex-wrap gap-2 border-b border-[var(--line)]">{([{id:"volunteers",label:"Data relawan"},{id:"attendance",label:"Absensi harian"}] as const).map(t=><button key={t.id} onClick={()=>setTab(t.id)} className={`border-b-2 px-4 py-3 text-sm font-medium ${tab===t.id?"border-[var(--green)] text-[var(--green)]":"border-transparent text-[var(--muted)]"}`}>{t.label}</button>)}</div>
