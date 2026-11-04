@@ -51,11 +51,11 @@ npm install
 npm run dev
 ```
 
-Copy `.env.example` to `.env.local` and fill in Supabase settings when database integration is enabled. Never commit secrets.
+Copy `.env.example` to `.env.local` and set `NEXT_PUBLIC_SUPABASE_URL` plus `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. Never commit secrets or expose a secret/service-role key in browser code.
 
 ## Project status
 
-Foundation phase. See `docs/ROADMAP.md` and `docs/ARCHITECTURE.md`.
+Operational preview phase. Passwordless sign-in, first-workspace onboarding, volunteer/section management, daily attendance, and menu composition/production editing are implemented against the dedicated Supabase project. Payroll, approvals, reporting, menu scheduling, and Virtual Office are not yet implemented. Preview still needs an end-to-end auth/data test before production use. See `docs/ROADMAP.md` and `docs/SETUP_SUPABASE.md`.
 
 ## License
 
