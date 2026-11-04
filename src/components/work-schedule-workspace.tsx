@@ -42,7 +42,7 @@ export function WorkScheduleWorkspace({workspaceId,workspaceName,role}:{workspac
   if(e2)setError(e2.message);else{setName("");setNotes("");setNotice("Grup kerja berhasil dibuat.");await load();}setBusy(false);
  }
  async function assign(groupId:string,volunteerId:string){
-  setBusy(true);setError("");const {error:e}=await db.from("volunteer_group_members").upsert({workspace_id:workspaceId,group_id:groupId,volunteer_id:volunteerId},{onConflict:"workspace_id,volunteer_id"});
+  setBusy(true);setError("");const {error:e}=await db.from("volunteer_group_members").insert({workspace_id:workspaceId,group_id:groupId,volunteer_id:volunteerId});
   if(e)setError(e.message);else{setNotice("Penempatan relawan diperbarui.");await load();}setBusy(false);
  }
  async function unassign(groupId:string,volunteerId:string){
