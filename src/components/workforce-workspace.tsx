@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 type Section={id:string;name:string};
@@ -15,7 +15,7 @@ const field="w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2.5 
 const button="inline-flex items-center justify-center rounded-lg bg-[var(--green)] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50";
 
 export function WorkforceWorkspace({workspaceId,workspaceName,role}:Props){
- const supabase=useMemo(()=>createClient(),[]);
+ const supabase=useMemo(()=>createClient(),[]);const loadSequence=useRef(0);
  const [tab,setTab]=useState<"volunteers"|"attendance">("volunteers");
  const [sections,setSections]=useState<Section[]>([]);
  const [volunteers,setVolunteers]=useState<Volunteer[]>([]);
@@ -34,12 +34,13 @@ export function WorkforceWorkspace({workspaceId,workspaceName,role}:Props){
  const canDelete= ["owner","admin"].includes(role);
 
  const load=useCallback(async()=>{
-  setLoading(true);setError("");setRecords({});
+  const requestId=++loadSequence.current;setLoading(true);setError("");setRecords({});
   const [sectionResult,volunteerResult,attendanceResult]=await Promise.all([
    supabase.from("sections").select("id,name").eq("workspace_id",workspaceId).order("sort_order").order("name"),
    supabase.from("volunteers").select("id,full_name,employee_code,section_id,phone,position_title,status,daily_rate,joined_on,notes").eq("workspace_id",workspaceId).order("full_name"),
    supabase.from("attendance_records").select("volunteer_id,status,clock_in,clock_out,notes").eq("workspace_id",workspaceId).eq("work_date",date)
   ]);
+  if(requestId!==loadSequence.current)return;
   const firstError=sectionResult.error||volunteerResult.error||attendanceResult.error;
   if(firstError){setError(firstError.message);setLoading(false);return;}
   setSections(sectionResult.data??[]);setVolunteers(volunteerResult.data??[]);
