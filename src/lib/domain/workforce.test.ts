@@ -14,11 +14,11 @@ describe("volunteerInputSchema", () => {
 
   it("rejects negative or non-finite daily wages", () => {
     expect(volunteerInputSchema.safeParse({ fullName: "Siti Aminah", dailyWage: -1 }).success).toBe(false);
-    expect(volunteerInputSchema.safeParse({ fullName: "Siti Aminah", dailyRate: Number.NaN }).success).toBe(false);
+    expect(volunteerInputSchema.safeParse({ fullName: "Siti Aminah", dailyWage: Number.NaN }).success).toBe(false);
   });
 
   it("accepts a null optional section and rate", () => {
-    const result = volunteerInputSchema.safeParse({ fullName: "Siti Aminah", sectionId: null, dailyRate: null });
+    const result = volunteerInputSchema.safeParse({ fullName: "Siti Aminah", sectionId: null, dailyWage: null });
     expect(result.success).toBe(true);
   });
 
