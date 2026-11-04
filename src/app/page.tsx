@@ -15,7 +15,7 @@ const workstreams = [
   { name: "Manajemen relawan", description: "Data personel, jabatan, dan kelompok kerja", status: "Fondasi tersedia", icon: Users, href: "/relawan" },
   { name: "Absensi harian", description: "Input massal, status kehadiran, dan rekap", status: "Fondasi tersedia", icon: ClipboardCheck, href: "/absensi" },
   { name: "Penggajian", description: "Simulasi upah dan kontrol anggaran", status: "Berikutnya", icon: CircleDollarSign, href: "#" },
-  { name: "Bank menu & produksi", description: "Komposisi bahan, bumbu, dan catatan proses", status: "Direncanakan", icon: ChefHat, href: "#" }
+  { name: "Bank menu & produksi", description: "Komposisi bahan, bumbu, dan catatan proses", status: "Kerangka tersedia", icon: ChefHat, href: "/menu-bank" }
 ];
 
 function MetricCard({ item }: { item: typeof metrics[number] }) {
