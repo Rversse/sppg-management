@@ -1,7 +1,7 @@
 # Product roadmap
 
 ## Phase 0 — Foundation
-- [x] Create private repository and product direction
+- [x] Create public repository and product direction
 - [x] Establish Next.js + TypeScript application shell
 - [x] Define architecture, guardrails, and delivery sequence
 - [ ] Generate and commit npm lockfile; run local build verification
@@ -39,7 +39,7 @@
 ## Phase 5 — Hardening
 - [x] Add initial CI workflow for typecheck, tests, and production build
 - [ ] Commit dependency lockfile and confirm green CI
-- [ ] Diagnose GitHub Actions runner allocation failure
+- [ ] Confirm GitHub Actions runs successfully on the public repository
 - [ ] RLS and security review
 - [ ] Backup/restore and operational documentation
 - [ ] Responsive and accessibility audit
