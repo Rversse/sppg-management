@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { FormEvent,useCallback,useEffect,useMemo,useRef,useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { SignOutButton } from "@/components/sign-out-button";
 
 type Menu={id:string;name:string;description:string|null;status:"draft"|"active"|"archived";portion_count:number|null;prep_duration_minutes:number|null;cook_duration_minutes:number|null;production_notes:string|null;dietary_notes:string|null};
 type Entry={id:string;item_name?:string;ingredient_name?:string;category?:string;quantity:number|null;unit:string|null;preparation_note:string|null;sort_order:number;step_order?:number;title?:string;instructions?:string;duration_minutes?:number|null;critical_note?:string};
