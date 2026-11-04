@@ -88,6 +88,8 @@ export function WorkforceWorkspace({workspaceId,workspaceName,role}:Props){
  }
  async function saveAttendance(){
   setBusy(true);setError("");setNotice("");
+  const selectedDate=new Date(date+"T12:00:00+07:00");
+  if([0,6].includes(selectedDate.getDay())){setError("Absensi tidak dapat dicatat pada Sabtu atau Minggu karena merupakan hari libur.");setBusy(false);return;}
   const {data:{user}}=await supabase.auth.getUser();
   if(!user){setError("Sesi login berakhir. Masuk kembali.");setBusy(false);return;}
   const rows=volunteers.filter(v=>v.status==="active"&&records[v.id]).map(v=>({workspace_id:workspaceId,volunteer_id:v.id,work_date:date,status:records[v.id].status,clock_in:records[v.id].clock_in,clock_out:records[v.id].clock_out,notes:records[v.id].notes,recorded_by:user.id,updated_by:user.id}));
