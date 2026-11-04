@@ -1,20 +1,21 @@
+import Link from "next/link";
 import {
-  Activity, ArrowDownRight, ArrowUpRight, CalendarDays, ChefHat,
-  CircleDollarSign, ClipboardCheck, Clock3, Users, Utensils
+  Activity, CalendarDays, ChefHat, CircleDollarSign, ClipboardCheck,
+  Clock3, Users, Utensils
 } from "lucide-react";
 
 const metrics = [
-  { label: "Relawan terdaftar", value: "47", detail: "Data awal · perlu diverifikasi", icon: Users, tone: "green" },
-  { label: "Kehadiran hari ini", value: "—", detail: "Belum ada input absensi", icon: ClipboardCheck, tone: "blue" },
-  { label: "Anggaran upah harian", value: "Rp5 jt", detail: "Target anggaran yang dikonfigurasi", icon: CircleDollarSign, tone: "amber" },
-  { label: "Menu aktif", value: "—", detail: "Bank menu belum diisi", icon: Utensils, tone: "violet" }
+  { label: "Relawan terdaftar", value: "—", detail: "Menunggu koneksi database", icon: Users },
+  { label: "Kehadiran hari ini", value: "—", detail: "Belum ada input absensi", icon: ClipboardCheck },
+  { label: "Anggaran upah harian", value: "—", detail: "Atur target di konfigurasi payroll", icon: CircleDollarSign },
+  { label: "Menu aktif", value: "—", detail: "Bank menu belum diisi", icon: Utensils }
 ];
 
 const workstreams = [
-  { name: "Manajemen relawan", description: "Data personel, jabatan, dan kelompok kerja", status: "Fondasi", icon: Users },
-  { name: "Absensi harian", description: "Input massal, status kehadiran, dan rekap", status: "Fondasi", icon: ClipboardCheck },
-  { name: "Penggajian", description: "Simulasi upah, kontrol anggaran, dan persetujuan", status: "Fondasi", icon: CircleDollarSign },
-  { name: "Bank menu & produksi", description: "Komposisi bahan, bumbu, dan catatan proses", status: "Direncanakan", icon: ChefHat }
+  { name: "Manajemen relawan", description: "Data personel, jabatan, dan kelompok kerja", status: "Fondasi tersedia", icon: Users, href: "/relawan" },
+  { name: "Absensi harian", description: "Input massal, status kehadiran, dan rekap", status: "Fondasi tersedia", icon: ClipboardCheck, href: "/absensi" },
+  { name: "Penggajian", description: "Simulasi upah dan kontrol anggaran", status: "Berikutnya", icon: CircleDollarSign, href: "#" },
+  { name: "Bank menu & produksi", description: "Komposisi bahan, bumbu, dan catatan proses", status: "Direncanakan", icon: ChefHat, href: "#" }
 ];
 
 function MetricCard({ item }: { item: typeof metrics[number] }) {
@@ -66,28 +67,28 @@ export default function Home() {
               <span className="rounded-full bg-[var(--green-soft)] px-3 py-1 text-xs font-medium text-[var(--green)]">4 modul</span>
             </div>
             <div className="mt-5 divide-y divide-[var(--line)]">
-              {workstreams.map((item) => { const Icon = item.icon; return (
-                <div key={item.name} className="flex items-center gap-4 py-4 first:pt-0 last:pb-0">
+              {workstreams.map((item) => { const Icon = item.icon; const row = (
+                <div className="flex items-center gap-4 py-4 first:pt-0 last:pb-0">
                   <span className="rounded-lg bg-[#f2f5f1] p-3 text-[var(--green)]"><Icon size={19} /></span>
                   <div className="min-w-0 flex-1"><p className="font-medium">{item.name}</p><p className="mt-1 text-xs text-[var(--muted)]">{item.description}</p></div>
                   <span className="shrink-0 rounded-full border border-[var(--line)] px-2.5 py-1 text-[11px] text-[var(--muted)]">{item.status}</span>
                 </div>
-              ); })}
+              ); return item.href === "#" ? <div key={item.name} className="opacity-65">{row}</div> : <Link key={item.name} href={item.href} className="block rounded-lg transition-colors hover:bg-[#fafbf9]">{row}</Link>; })}
             </div>
           </div>
 
           <div className="rounded-xl border border-[var(--line)] bg-white p-5 sm:p-6">
-            <div className="flex items-center gap-2"><Clock3 size={17} className="text-[var(--green)]" /><h2 className="font-semibold">Catatan pengembangan</h2></div>
+            <div className="flex items-center gap-2"><Clock3 size={17} className="text-[var(--green)]" /><h2 className="font-semibold">Prinsip operasional</h2></div>
             <div className="mt-5 space-y-4">
-              <div className="rounded-lg bg-[#f6f7f4] p-4"><p className="text-sm font-medium">Perhitungan tetap deterministik</p><p className="mt-1 text-xs leading-5 text-[var(--muted)]">AI hanya memberi analisis dan rekomendasi. Nilai upah dan hasil payroll harus dapat ditelusuri.</p></div>
-              <div className="rounded-lg bg-[#f6f7f4] p-4"><p className="text-sm font-medium">Aturan absensi dapat dikonfigurasi</p><p className="mt-1 text-xs leading-5 text-[var(--muted)]">Perlakuan izin, sakit, dan tanpa keterangan tidak dikunci sebelum kebijakan ditentukan.</p></div>
+              <div className="rounded-lg bg-[#f6f7f4] p-4"><p className="text-sm font-medium">Perhitungan deterministik</p><p className="mt-1 text-xs leading-5 text-[var(--muted)]">AI hanya memberi analisis dan rekomendasi. Nilai upah dan hasil payroll harus dapat ditelusuri.</p></div>
+              <div className="rounded-lg bg-[#f6f7f4] p-4"><p className="text-sm font-medium">Kebijakan absensi fleksibel</p><p className="mt-1 text-xs leading-5 text-[var(--muted)]">Perlakuan izin, sakit, dan tanpa keterangan tidak dikunci sebelum kebijakan ditentukan.</p></div>
               <div className="rounded-lg bg-[#f6f7f4] p-4"><p className="text-sm font-medium">AI lokal bersifat opsional</p><p className="mt-1 text-xs leading-5 text-[var(--muted)]">Operasional inti tetap berjalan tanpa Ollama atau layanan AI cloud.</p></div>
             </div>
           </div>
         </section>
 
         <footer className="mt-8 flex flex-col gap-2 border-t border-[var(--line)] py-5 text-xs text-[var(--muted)] sm:flex-row sm:items-center sm:justify-between">
-          <span>SPPG Management · Standalone platform</span><span>Fondasi awal — data dashboard masih berupa placeholder</span>
+          <span>SPPG Management · Standalone platform</span><span>Fondasi awal — data aktual belum terhubung</span>
         </footer>
       </div>
     </main>
