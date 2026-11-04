@@ -26,9 +26,10 @@ export function WorkScheduleWorkspace({workspaceId,workspaceName,role}:{workspac
    db.from("volunteer_groups").select("id,name,section_id,start_time,end_time,weekdays,notes").eq("workspace_id",workspaceId).order("start_time"),
    db.from("volunteers").select("id,full_name,daily_wage,status,section_id").eq("workspace_id",workspaceId).eq("status","active").order("full_name"),
    db.from("volunteer_group_members").select("group_id,volunteer_id").eq("workspace_id",workspaceId),
-   db.from("sections").select("id,name").eq("workspace_id",workspaceId).order("sort_order").order("name")
+   db.from("sections").select("id,name").eq("workspace_id",workspaceId).order("sort_order").order("name"),
+   canViewHistory ? db.from("volunteer_schedule_audit").select("id,entity_type,entity_id,group_id,action,before_data,after_data,occurred_at").eq("workspace_id",workspaceId).order("occurred_at",{ascending:false}).limit(30) : Promise.resolve({data:[],error:null})
   ]);
-  const e=g.error||p.error||m.error||sec.error;if(e)setError(e.message);else{setGroups((g.data??[]) as Group[]);setPeople((p.data??[]) as Person[]);setMembers((m.data??[]) as Member[]);setSections((sec.data??[]) as Section[]);}
+  const e=g.error||p.error||m.error||sec.error||audit.error;if(e)setError(e.message);else{setGroups((g.data??[]) as Group[]);setPeople((p.data??[]) as Person[]);setMembers((m.data??[]) as Member[]);setSections((sec.data??[]) as Section[]);setHistory((audit.data??[]) as Audit[]);}
   setLoading(false);
  },[db,workspaceId]);
  useEffect(()=>{void load();},[load]);
