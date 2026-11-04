@@ -4,7 +4,8 @@
 - [x] Create public repository and product direction
 - [x] Establish Next.js + TypeScript application shell
 - [x] Define architecture, guardrails, and delivery sequence
-- [ ] Generate and commit npm lockfile; run local build verification
+- [ ] Generate and commit npm lockfile; switch CI install to `npm ci`
+- [ ] Run local lint, typecheck, tests, and production build
 
 ## Phase 1 — Workforce
 - [x] Draft Supabase schema, workspace roles, and RLS policies
@@ -37,7 +38,8 @@
 - [ ] Approval gates and truthful agent presence indicators
 
 ## Phase 5 — Hardening
-- [x] Add initial CI workflow for typecheck, tests, and production build
+- [x] Add CI workflow with lint, typecheck, tests, and production build
+- [x] Add workflow concurrency cancellation and job timeout
 - [ ] Commit dependency lockfile and confirm green CI
 - [ ] Confirm GitHub Actions runs successfully on the public repository
 - [ ] RLS and security review
@@ -46,4 +48,4 @@
 
 ## Current implementation boundary
 
-The workforce and menu-bank pages are UI foundations, not yet connected to live data. The SQL migrations are committed but have not been applied to any Supabase project. Menu input and production records are not yet operational. GitHub Actions has accepted workflow events, but recent jobs failed before exposing any executable steps; this is not evidence of a TypeScript or application build failure. Do not treat the application as production-ready until database provisioning, auth, RLS tests, and CI verification are complete.
+The workforce and menu-bank pages are UI foundations, not yet connected to live data. The SQL migrations are committed but have not been applied to any Supabase project. Menu input and production records are not yet operational. The CI workflow now runs lint, typecheck, unit tests, and production build with bounded execution and cancellation of superseded runs. Dependency installation still uses `npm install` because the repository does not yet contain a lockfile; local verification has not been performed. Do not treat the application as production-ready until database provisioning, auth, RLS tests, and CI verification are complete.
