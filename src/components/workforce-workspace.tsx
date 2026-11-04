@@ -34,7 +34,7 @@ export function WorkforceWorkspace({workspaceId,workspaceName,role}:Props){
  const canDelete= ["owner","admin"].includes(role);
 
  const load=useCallback(async()=>{
-  setLoading(true);setError("");
+  setLoading(true);setError("");setRecords({});
   const [sectionResult,volunteerResult,attendanceResult]=await Promise.all([
    supabase.from("sections").select("id,name").eq("workspace_id",workspaceId).order("sort_order").order("name"),
    supabase.from("volunteers").select("id,full_name,employee_code,section_id,phone,position_title,status,daily_rate,joined_on,notes").eq("workspace_id",workspaceId).order("full_name"),
