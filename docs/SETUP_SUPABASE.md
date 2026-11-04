@@ -17,6 +17,10 @@ The dedicated project is `sppg-management` (reference: `sjmjgfndvjubicypaeri`, r
 13. `202611040014_volunteer_profile_schedule_versions.sql`
 14. `202611040015_index_volunteer_schedule_audit_actor.sql`
 15. `202611040016_serialize_workspace_bootstrap_per_user.sql`
+16. `202611040017_menu_calendar_planning.sql`
+17. `202611040018_production_batches_and_bottleneck_history.sql`
+18. `202611040019_production_batch_history_hardening.sql`
+19. `202611040020_enforce_production_batch_portion_limits.sql`
 
 Migration `202611040007` was intentionally skipped. Apply migrations in numeric order; do not reapply migrations already recorded in Supabase migration history.
 
@@ -58,7 +62,7 @@ For production email delivery, configure a trusted custom SMTP provider and appr
 
 - All five migrations are present in Supabase migration history.
 - Security advisor no longer reports the auto-RLS trigger as callable by anon/authenticated. It reports the authenticated workspace-bootstrap RPC as SECURITY DEFINER by design.
-- Confirmed RLS is enabled on workspaces, memberships, sections, volunteers, attendance, audit, and all menu tables.
+- Confirmed RLS is enabled on workspaces, memberships, sections, volunteers, attendance, audit, and all menu tables, menu plans, production batches, and batch-event history, production batches, and batch-event history.
 - Confirmed `anon` has no SELECT privilege on those tables.
 - Performance advisor reports unused indexes on a newly provisioned, nearly empty database; reassess after realistic data volume and query patterns exist.
 
