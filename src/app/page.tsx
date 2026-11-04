@@ -28,6 +28,7 @@ export default async function Home() {
     { title: "Relawan & absensi", description: "Kelola personel, bagian kerja, dan pencatatan kehadiran.", href: "/relawan", icon: Users },
     { title: "Bank menu", description: "Komposisi bahan, racikan bumbu, dan langkah produksi.", href: "/menu-bank", icon: ChefHat },
     { title: "Grup & jadwal kerja", description: "Atur grup relawan, jam kerja, hari libur, dan total gaji harian terjadwal.", href: "/jadwal-kerja", icon: Clock3 },
+    { title: "Roster harian", description: "Bandingkan personel terjadwal dengan catatan kehadiran aktual.", href: "/roster-harian", icon: ClipboardCheck },
   ];
 
   return (
