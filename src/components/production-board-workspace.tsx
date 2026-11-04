@@ -1,0 +1,87 @@
+"use client";
+
+import Link from "next/link";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+import { SignOutButton } from "@/components/sign-out-button";
+
+type Status = "planned" | "preparing" | "ready" | "completed" | "cancelled";
+type Plan = { id: string; menu_id: string; planned_date: string; portion_count: number; status: Status; production_notes: string | null };
+type Menu = { id: string; name: string; description: string | null; prep_duration_minutes: number | null; cook_duration_minutes: number | null; production_notes: string | null };
+type Detail = { components: { id: string; item_name: string; category: string; quantity: number | null; unit: string | null; preparation_note: string | null }[]; seasonings: { id: string; ingredient_name: string; quantity: number | null; unit: string | null; preparation_note: string | null }[]; steps: { id: string; step_order: number; title: string; instructions: string; duration_minutes: number | null; critical_note: string | null }[] };
+const statuses: { value: Status; label: string }[] = [{ value: "planned", label: "Terencana" }, { value: "preparing", label: "Diproses" }, { value: "ready", label: "Siap" }, { value: "completed", label: "Selesai" }, { value: "cancelled", label: "Dibatalkan" }];
+const input = "rounded-lg border border-[var(--line)] bg-white px-3 py-2 text-sm";
+function todayJakarta() { const p = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date()); const v = (k: string) => p.find(x => x.type === k)?.value ?? ""; return v("year") + "-" + v("month") + "-" + v("day"); }
+function shift(date: string, n: number) { const d = new Date(date + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
+function label(date: string) { return new Intl.DateTimeFormat("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(new Date(date + "T12:00:00")); }
+
+export function ProductionBoardWorkspace({ workspaceId, workspaceName, role }: { workspaceId: string; workspaceName: string; role: string }) {
+  const supabase = useMemo(() => createClient(), []);
+  const canManage = ["owner", "admin", "operations"].includes(role);
+  const [plans, setPlans] = useState<Plan[]>([]);
+  const [menus, setMenus] = useState<Menu[]>([]);
+  const [details, setDetails] = useState<Record<string, Detail>>({});
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [filter, setFilter] = useState<"all" | Status>("all");
+  const [from, setFrom] = useState(() => shift(todayJakarta(), -7));
+  const [to, setTo] = useState(() => shift(todayJakarta(), 14));
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState("");
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const menuMap = useMemo(() => new Map(menus.map(m => [m.id, m])), [menus]);
+  const visible = plans.filter(p => filter === "all" || p.status === filter);
+  const active = plans.filter(p => p.status === "preparing").length;
+  const ready = plans.filter(p => p.status === "ready").length;
+  const planned = plans.filter(p => p.status === "planned").length;
+
+  const load = useCallback(async () => {
+    setLoading(true); setError("");
+    const [p, m] = await Promise.all([
+      supabase.from("menu_plans").select("id,menu_id,planned_date,portion_count,status,production_notes").eq("workspace_id", workspaceId).gte("planned_date", from).lte("planned_date", to).neq("status", "cancelled").order("planned_date").order("created_at"),
+      supabase.from("menu_items").select("id,name,description,prep_duration_minutes,cook_duration_minutes,production_notes").eq("workspace_id", workspaceId)
+    ]);
+    if (p.error || m.error) setError(p.error?.message ?? m.error?.message ?? "Gagal memuat antrean produksi.");
+    else { setPlans(p.data ?? []); setMenus(m.data ?? []); }
+    setLoading(false);
+  }, [supabase, workspaceId, from, to]);
+  useEffect(() => { void load(); }, [load]);
+
+  async function setStatus(plan: Plan, status: Status) {
+    setBusy(plan.id); setError(""); setNotice("");
+    const user = (await supabase.auth.getUser()).data.user;
+    const { error: e } = await supabase.from("menu_plans").update({ status, updated_by: user?.id ?? null }).eq("id", plan.id).eq("workspace_id", workspaceId);
+    if (e) setError(e.message); else { setNotice("Status produksi diperbarui."); await load(); }
+    setBusy("");
+  }
+  async function toggleDetails(plan: Plan) {
+    if (expanded === plan.id) { setExpanded(null); return; }
+    setExpanded(plan.id);
+    if (details[plan.id]) return;
+    const [c, s, p] = await Promise.all([
+      supabase.from("menu_components").select("id,item_name,category,quantity,unit,preparation_note").eq("workspace_id", workspaceId).eq("menu_id", plan.menu_id).order("sort_order"),
+      supabase.from("menu_seasonings").select("id,ingredient_name,quantity,unit,preparation_note").eq("workspace_id", workspaceId).eq("menu_id", plan.menu_id).order("sort_order"),
+      supabase.from("menu_production_steps").select("id,step_order,title,instructions,duration_minutes,critical_note").eq("workspace_id", workspaceId).eq("menu_id", plan.menu_id).order("step_order")
+    ]);
+    if (c.error || s.error || p.error) { setError(c.error?.message ?? s.error?.message ?? p.error?.message ?? "Gagal memuat detail resep."); return; }
+    setDetails(prev => ({ ...prev, [plan.id]: { components: c.data ?? [], seasonings: s.data ?? [], steps: p.data ?? [] } }));
+  }
+
+  return <main className="min-h-screen bg-[var(--background)]">
+    <header className="border-b border-[var(--line)] bg-white"><div className="mx-auto flex max-w-[1440px] items-center justify-between px-5 py-4 lg:px-10"><Link href="/" className="font-semibold text-[var(--green)]">SPPG Management</Link><div className="flex items-center gap-3"><span className="text-xs text-[var(--muted)]">{workspaceName} · {role}</span><SignOutButton /></div></div></header>
+    <div className="mx-auto max-w-[1440px] px-5 py-8 lg:px-10">
+      <p className="text-xs font-semibold uppercase tracking-[.16em] text-[var(--green)]">Food operations</p><h1 className="mt-2 text-3xl font-semibold tracking-tight">Papan produksi</h1><p className="mt-2 text-sm text-[var(--muted)]">Antrean produksi dari kalender menu, lengkap dengan komposisi resep dan instruksi kerja.</p>
+      {error && <p role="alert" className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}{notice && <p role="status" className="mt-4 rounded-lg bg-green-50 p-3 text-sm text-green-800">{notice}</p>}
+      <section className="mt-6 grid gap-3 sm:grid-cols-3"><Metric label="Menunggu proses" value={planned}/><Metric label="Sedang diproses" value={active}/><Metric label="Siap" value={ready}/></section>
+      <section className="mt-6 flex flex-wrap items-end justify-between gap-3 rounded-xl border border-[var(--line)] bg-white p-4"><div className="flex flex-wrap gap-3"><label className="block space-y-1 text-xs text-[var(--muted)]">Dari tanggal<input type="date" value={from} onChange={e=>setFrom(e.target.value)} className={input+" block"}/></label><label className="block space-y-1 text-xs text-[var(--muted)]">Sampai tanggal<input type="date" min={from} value={to} onChange={e=>setTo(e.target.value)} className={input+" block"}/></label></div><select value={filter} onChange={e=>setFilter(e.target.value as "all"|Status)} className={input}><option value="all">Semua status</option>{statuses.map(s=><option key={s.value} value={s.value}>{s.label}</option>)}</select></section>
+      <section className="mt-6 space-y-3">
+        {loading ? <p className="rounded-xl border border-[var(--line)] bg-white py-12 text-center text-sm text-[var(--muted)]">Memuat antrean produksi...</p> : visible.length === 0 ? <div className="rounded-xl border border-dashed border-[var(--line)] bg-white py-14 text-center"><h2 className="font-semibold">Belum ada antrean produksi</h2><p className="mt-2 text-sm text-[var(--muted)]">Buat rencana di <Link href="/kalender-menu" className="text-[var(--green)] underline">Kalender Menu</Link> untuk mulai mengisi papan produksi.</p></div> : visible.map(plan => { const menu = menuMap.get(plan.menu_id); const detail = details[plan.id]; return <article key={plan.id} className="rounded-xl border border-[var(--line)] bg-white p-5"><div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-start"><div className="min-w-0"><p className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">{label(plan.planned_date)}</p><h2 className="mt-1 text-xl font-semibold">{menu?.name ?? "Menu tidak ditemukan"}</h2><p className="mt-1 text-sm text-[var(--muted)]">{plan.portion_count.toLocaleString("id-ID")} porsi{menu?.prep_duration_minutes !== null && menu?.prep_duration_minutes !== undefined ? " · Persiapan "+menu.prep_duration_minutes+" menit" : ""}{menu?.cook_duration_minutes !== null && menu?.cook_duration_minutes !== undefined ? " · Memasak "+menu.cook_duration_minutes+" menit" : ""}</p>{(plan.production_notes || menu?.production_notes) && <p className="mt-3 whitespace-pre-wrap text-sm leading-6">{plan.production_notes || menu?.production_notes}</p>}</div><div className="flex flex-wrap items-center gap-2">{canManage && <select disabled={busy===plan.id} value={plan.status} onChange={e=>void setStatus(plan,e.target.value as Status)} className={input}>{statuses.filter(s=>s.value!=="cancelled").map(s=><option key={s.value} value={s.value}>{s.label}</option>)}</select>}<button onClick={()=>void toggleDetails(plan)} className="rounded-lg border border-[var(--line)] px-3 py-2 text-sm">{expanded===plan.id?"Tutup detail":"Lihat instruksi produksi"}</button></div></div>
+          {expanded===plan.id && <div className="mt-5 grid gap-4 border-t border-[var(--line)] pt-5 lg:grid-cols-3"><DetailList title="Komposisi bahan" empty="Belum ada bahan." items={(detail?.components??[]).map(x=>({id:x.id,title:x.item_name,meta:(x.category||"lainnya")+" · "+(x.quantity??"—")+" "+(x.unit??""),note:x.preparation_note}))}/><DetailList title="Komposisi bumbu" empty="Belum ada bumbu." items={(detail?.seasonings??[]).map(x=>({id:x.id,title:x.ingredient_name,meta:(x.quantity??"—")+" "+(x.unit??""),note:x.preparation_note}))}/><DetailList title="Tahapan produksi" empty="Belum ada tahapan." items={(detail?.steps??[]).map(x=>({id:x.id,title:x.step_order+". "+x.title,meta:x.duration_minutes===null?"Durasi belum ditentukan":x.duration_minutes+" menit",note:x.instructions+(x.critical_note?" · Titik kritis: "+x.critical_note:"")}))}/></div>}
+        </article>; })}
+      </section>
+      <p className="mt-6 text-xs leading-5 text-[var(--muted)]">Status produksi merupakan catatan operasional manual. Sistem belum mengklaim proses berjalan otomatis atau memverifikasi produksi fisik.</p>
+    </div>
+  </main>;
+}
+function Metric({label,value}:{label:string;value:number}) { return <article className="rounded-xl border border-[var(--line)] bg-white p-4"><p className="text-xs text-[var(--muted)]">{label}</p><p className="mt-2 text-2xl font-semibold">{value}</p></article>; }
+function DetailList({title,empty,items}:{title:string;empty:string;items:{id:string;title:string;meta:string;note:string|null}[]}) { return <section><h3 className="font-semibold">{title}</h3>{items.length===0?<p className="mt-2 text-sm text-[var(--muted)]">{empty}</p>:<ul className="mt-2 space-y-2">{items.map(item=><li key={item.id} className="rounded-lg bg-[#f7f8f6] p-3"><p className="text-sm font-medium">{item.title}</p><p className="mt-1 text-xs text-[var(--muted)]">{item.meta}</p>{item.note&&<p className="mt-1 whitespace-pre-wrap text-xs leading-5 text-[var(--muted)]">{item.note}</p>}</li>)}</ul>}</section>; }
