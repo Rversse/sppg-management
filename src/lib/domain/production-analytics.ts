@@ -21,7 +21,7 @@ export type ProductionBatchEvent = {
   before_data: Record<string, unknown> | null;
   after_data: Record<string, unknown> | null;
 };
-export type MenuLabel = { id: string; name: string };
+export type MenuLabel = { id: string; name: string; prep_duration_minutes: number | null; cook_duration_minutes: number | null };
 export type ProductionMenuSummary = {
   menuId: string;
   menuName: string;
@@ -30,7 +30,9 @@ export type ProductionMenuSummary = {
   batchCount: number;
   completedBatches: number;
   blockedBatches: number;
+  estimatedDurationMinutes: number | null;
   averageDurationMinutes: number | null;
+  durationVarianceMinutes: number | null;
 };
 export type ProductionBlockerSummary = {
   reason: string;
@@ -110,11 +112,22 @@ export function buildProductionReport(
       batchCount: group.batches.length,
       completedBatches: group.batches.filter((batch) => batch.status === "completed").length,
       blockedBatches: group.batches.filter((batch) => batch.status === "blocked").length,
+      estimatedDurationMinutes: (() => {
+        const menu = menus.find((item) => item.id === menuId);
+        const values = [menu?.prep_duration_minutes, menu?.cook_duration_minutes].filter((value): value is number => typeof value === "number" && Number.isFinite(value) && value >= 0);
+        return values.length ? values.reduce((sum, value) => sum + value, 0) : null;
+      })(),
       averageDurationMinutes: menuDurations.length
         ? Math.round(menuDurations.reduce((sum, value) => sum + value, 0) / menuDurations.length)
         : null,
+      durationVarianceMinutes: null,
     };
-  }).sort((a, b) => b.plannedPortions - a.plannedPortions || a.menuName.localeCompare(b.menuName, "id"));
+  }).map((item) => ({
+    ...item,
+    durationVarianceMinutes: item.estimatedDurationMinutes !== null && item.averageDurationMinutes !== null
+      ? item.averageDurationMinutes - item.estimatedDurationMinutes
+      : null,
+  })).sort((a, b) => b.plannedPortions - a.plannedPortions || a.menuName.localeCompare(b.menuName, "id"));
 
   return {
     planCount: plans.length,
