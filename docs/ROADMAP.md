@@ -43,6 +43,7 @@ The application is not a payroll system. Do not add payroll runs, payslips, sala
 - [x] Blocked-batch reason capture and append-only batch change history
 - [x] Batch duration analytics and blocker-reason summaries from the append-only batch audit
 - [x] Date-range operational summaries by menu with CSV export
+- [x] Indicative menu-duration estimate versus actual batch-duration comparison
 - [ ] Stage-level actual duration tracking (requires explicit per-stage start/finish events)
 - [ ] Menu duplication/versioning for recurring recipes
 
