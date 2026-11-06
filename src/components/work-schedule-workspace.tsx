@@ -22,7 +22,7 @@ export function WorkScheduleWorkspace({workspaceId,workspaceName,role,timezone}:
  const canViewHistory=["owner","admin","hr"].includes(role);
  const weekdayShort=new Intl.DateTimeFormat("en-US",{timeZone:timezone||"Asia/Jakarta",weekday:"short"}).format(new Date());
  const todayDay=({Mon:1,Tue:2,Wed:3,Thu:4,Fri:5,Sat:6,Sun:7} as Record<string,number>)[weekdayShort]??6;
- const todayLabel=new Intl.DateTimeFormat("id-ID",{dateStyle:"full",timeZone:"Asia/Jakarta"}).format(new Date());
+ const todayLabel=new Intl.DateTimeFormat("id-ID",{dateStyle:"full",timeZone:timezone||"Asia/Jakarta"}).format(new Date());
  const load=useCallback(async()=>{
   setLoading(true);setError("");
   const [g,p,m,sec,audit]=await Promise.all([
