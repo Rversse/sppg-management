@@ -4,6 +4,7 @@ import Link from "next/link";
 
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { volunteersToCsv } from "@/lib/domain/workforce-csv";
 
 type Section={id:string;name:string};
 type Volunteer={id:string;full_name:string;section_id:string|null;status:"active"|"inactive";daily_wage:number|null;joined_on:string|null;notes:string|null};
@@ -73,6 +74,25 @@ export function WorkforceWorkspace({workspaceId,workspaceName,role,timezone}:Pro
   setShowForm(false);setNotice(editing?"Data relawan diperbarui.":"Relawan berhasil ditambahkan.");await load();setBusy(false);
  }
 
+ async function exportVolunteers(){
+  const rows=volunteers.filter(v=>sectionFilter==="all"||v.section_id===sectionFilter).filter(v=>!search||v.full_name.toLowerCase().includes(search.toLowerCase())).map(v=>({
+   full_name:v.full_name,
+   section_name:sections.find(s=>s.id===v.section_id)?.name??"",
+   daily_wage:v.daily_wage,
+   status:v.status,
+   joined_on:v.joined_on,
+   notes:v.notes
+  }));
+  if(rows.length===0){setError("Tidak ada data relawan untuk diekspor.");return;}
+  const blob=new Blob([volunteersToCsv(rows)],{type:"text/csv;charset=utf-8;"});
+  const url=URL.createObjectURL(blob);
+  const link=document.createElement("a");
+  link.href=url;
+  link.download="data-relawan-"+new Date().toISOString().slice(0,10)+".csv";
+  document.body.appendChild(link);link.click();link.remove();URL.revokeObjectURL(url);
+  setNotice(rows.length+" data relawan berhasil diekspor ke CSV.");
+  setError("");
+ }
  async function createSection(){
   const name=sectionName.trim();if(name.length<1||name.length>80){setError("Nama bagian harus 1 sampai 80 karakter.");return;}
   setBusy(true);setError("");setNotice("");
@@ -122,7 +142,7 @@ export function WorkforceWorkspace({workspaceId,workspaceName,role,timezone}:Pro
    {error&&<p role="alert" className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p>}{notice&&<p role="status" className="mt-4 rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-800">{notice}</p>}
    {tab==="volunteers"?<section className="mt-6">
     <div className="grid gap-3 sm:grid-cols-3"><Metric label="Total relawan" value={counts.total}/><Metric label="Aktif" value={counts.active}/><Metric label="Bagian kerja" value={counts.sections}/></div>
-    <div className="mt-5 flex flex-col gap-3 rounded-xl border border-[var(--line)] bg-white p-4 sm:flex-row sm:items-center sm:justify-between"><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Cari nama relawan..." className={`${field} sm:max-w-sm`}/><div className="flex flex-wrap gap-2"><select value={sectionFilter} onChange={e=>setSectionFilter(e.target.value)} className={field+" sm:w-48"}><option value="all">Semua bagian</option>{sections.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select>{canManage&&<button onClick={startCreate} className={button}>+ Tambah relawan</button>}{["owner","admin","hr","operations"].includes(role)&&<form onSubmit={e=>{e.preventDefault();void createSection();}} className="flex gap-2"><input aria-label="Nama bagian kerja baru" value={sectionName} onChange={e=>setSectionName(e.target.value)} placeholder="Bagian kerja baru" maxLength={80} className={field+" sm:w-44"}/><button disabled={busy||!sectionName.trim()} className="rounded-lg border border-[var(--line)] px-3 py-2 text-xs font-medium">Tambah bagian</button></form>}</div></div>
+    <div className="mt-5 flex flex-col gap-3 rounded-xl border border-[var(--line)] bg-white p-4 sm:flex-row sm:items-center sm:justify-between"><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Cari nama relawan..." className={`${field} sm:max-w-sm`}/><div className="flex flex-wrap gap-2"><select value={sectionFilter} onChange={e=>setSectionFilter(e.target.value)} className={field+" sm:w-48"}><option value="all">Semua bagian</option>{sections.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select><button type="button" disabled={loading||volunteers.length===0} onClick={exportVolunteers} className="rounded-lg border border-[var(--line)] px-3 py-2.5 text-sm font-medium">Ekspor CSV</button>{canManage&&<button onClick={startCreate} className={button}>+ Tambah relawan</button>}{["owner","admin","hr","operations"].includes(role)&&<form onSubmit={e=>{e.preventDefault();void createSection();}} className="flex gap-2"><input aria-label="Nama bagian kerja baru" value={sectionName} onChange={e=>setSectionName(e.target.value)} placeholder="Bagian kerja baru" maxLength={80} className={field+" sm:w-44"}/><button disabled={busy||!sectionName.trim()} className="rounded-lg border border-[var(--line)] px-3 py-2 text-xs font-medium">Tambah bagian</button></form>}</div></div>
     {showForm&&<form onSubmit={saveVolunteer} className="mt-4 rounded-xl border border-[var(--line)] bg-white p-5"><div className="flex items-center justify-between"><h2 className="font-semibold">{editing?"Ubah relawan":"Tambah relawan"}</h2><button type="button" onClick={()=>setShowForm(false)} className="text-sm text-[var(--muted)]">Tutup</button></div><div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
      <Field label="Nama lengkap *"><input required minLength={2} maxLength={160} value={form.full_name} onChange={e=>setForm({...form,full_name:e.target.value})} className={field}/></Field>
      
