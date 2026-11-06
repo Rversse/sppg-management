@@ -18,6 +18,26 @@ describe("calculatePayroll", () => {
     expect(result.lines[1].grossPay).toBe(50_000);
   });
 
+  it("rejects empty volunteer identifiers", () => {
+    expect(() => calculatePayroll([
+      { volunteerId: " ", volunteerName: "A", dailyRate: 1, attendanceStatus: "present" }
+    ], policy)).toThrow(/ID is required/);
+  });
+
+  it("rejects values that exceed safe currency precision", () => {
+    expect(() => calculatePayroll([
+      { volunteerId: "v1", volunteerName: "A", dailyRate: Number.MAX_VALUE, attendanceStatus: "present" }
+    ], policy)).toThrow(/safe currency range/);
+    expect(() => calculatePayroll([
+      { volunteerId: "v1", volunteerName: "A", dailyRate: Number.MAX_SAFE_INTEGER, attendanceStatus: "present" },
+      { volunteerId: "v2", volunteerName: "B", dailyRate: 1, attendanceStatus: "present" }
+    ], policy)).toThrow(/Total payroll exceeds/);
+  });
+
+  it("rejects budgets outside safe currency precision", () => {
+    expect(() => calculatePayroll([], policy, Number.MAX_VALUE)).toThrow(/Budget/);
+  });
+
   it("rejects duplicate volunteers", () => {
     const row = { volunteerId: "v1", volunteerName: "A", dailyRate: 1, attendanceStatus: "present" as const };
     expect(() => calculatePayroll([row, row], policy)).toThrow(/Duplicate/);
