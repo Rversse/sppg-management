@@ -26,7 +26,7 @@ function localDate(offset = 0) {
 }
 function csvCell(value: string | number | null | undefined) {
   const raw = String(value ?? "");
-  const safe = /^[\t\r\n ]*[=+\\-@]/.test(raw) ? "'" + raw : raw;
+  const safe = /^[\t\r\n ]*[=+@-]/.test(raw) ? "'" + raw : raw;
   return '"' + safe.replaceAll('"', '""') + '"';
 }
 
