@@ -31,7 +31,16 @@ describe("buildProductionReport", () => {
       { id: 2, batch_id: "b1", action: "UPDATE", occurred_at: "2026-11-06T01:10:00Z", before_data: { status: "blocked" }, after_data: { status: "blocked", blocker_note: "Kompor rusak" } },
       { id: 3, batch_id: "b2", action: "UPDATE", occurred_at: "2026-11-06T02:00:00Z", before_data: { status: "preparing" }, after_data: { status: "blocked", blocker_note: " kompor rusak " } },
     ];
-    const report = buildProductionReport([], [], events, []);
+    const report = buildProductionReport(
+      [{ id: "p1", menu_id: "m1", planned_date: "2026-11-06", portion_count: 10, status: "preparing" }],
+      [],
+      events.map((event) => ({
+        ...event,
+        before_data: { ...event.before_data, menu_plan_id: "p1" },
+        after_data: { ...event.after_data, menu_plan_id: "p1" },
+      })),
+      []
+    );
     expect(report.blockers).toHaveLength(1);
     expect(report.blockers[0]).toMatchObject({ reason: "Kompor rusak", occurrences: 2 });
   });
