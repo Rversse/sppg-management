@@ -22,6 +22,21 @@ begin
       using errcode = '23514';
   end if;
 
+  if tg_op = 'UPDATE'
+     and (new.workspace_id, new.menu_plan_id) is distinct from (old.workspace_id, old.menu_plan_id) then
+    select status::text
+      into parent_status
+      from public.menu_plans
+      where workspace_id = new.workspace_id
+        and id = new.menu_plan_id
+      for update;
+
+    if found and parent_status = 'completed' then
+      raise exception 'Batch tidak dapat dipindahkan ke rencana yang sudah selesai.'
+        using errcode = '23514';
+    end if;
+  end if;
+
   if tg_op = 'DELETE' then
     return old;
   end if;
