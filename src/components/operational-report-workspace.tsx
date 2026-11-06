@@ -18,6 +18,18 @@ function shiftDate(date: string, amount: number) {
   value.setUTCDate(value.getUTCDate() + amount);
   return value.toISOString().slice(0, 10);
 }
+function zonedDateTimeIso(date: string, hour: number, minute: number, second: number, millisecond: number, timezone: string) {
+  const [year, month, day] = date.split("-").map(Number);
+  const utcTarget = Date.UTC(year, month - 1, day, hour, minute, second, millisecond);
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23",
+  }).formatToParts(new Date(utcTarget));
+  const get = (key: string) => Number(parts.find((part) => part.type === key)?.value ?? 0);
+  const representedUtc = Date.UTC(get("year"), get("month") - 1, get("day"), get("hour"), get("minute"), get("second"), millisecond);
+  const offset = representedUtc - utcTarget;
+  return new Date(utcTarget - offset).toISOString();
+}
 function formatDuration(minutes: number | null) {
   if (minutes === null) return "—";
   if (minutes < 60) return `${minutes} menit`;
@@ -65,7 +77,7 @@ export function OperationalReportWorkspace({ workspaceId, workspaceName, role, t
     if (ids.length) {
       const [batchResult, eventResult] = await Promise.all([
         supabase.from("production_batches").select("id,menu_plan_id,portion_count,status,started_at,completed_at").eq("workspace_id", workspaceId).in("menu_plan_id", ids),
-        supabase.from("production_batch_events").select("id,batch_id,action,occurred_at,before_data,after_data").eq("workspace_id", workspaceId).gte("occurred_at", `${from}T00:00:00+07:00`).lte("occurred_at", `${to}T23:59:59.999+07:00`).order("occurred_at", { ascending: false }),
+        supabase.from("production_batch_events").select("id,batch_id,action,occurred_at,before_data,after_data").eq("workspace_id", workspaceId).gte("occurred_at", zonedDateTimeIso(from, 0, 0, 0, 0, timezone)).lte("occurred_at", zonedDateTimeIso(to, 23, 59, 59, 999, timezone)).order("occurred_at", { ascending: false }),
       ]);
       if (requestId !== requestSequence.current) return;
       if (batchResult.error || eventResult.error) {
