@@ -32,6 +32,7 @@ The following production-integrity and timezone migrations were added after the 
 23. `202611060003_protect_completed_menu_plan_records.sql`
 24. `202611060004_prevent_batches_on_completed_plans.sql`
 25. `202611060005_workspace_timezone_schedule_versions.sql`
+26. `202611060006_preserve_attendance_original_recorder.sql`
 
 Review these migrations and confirm the target project's migration history before applying them. Do not mark them as applied or run them against the project until the release/migration review is complete.
 
