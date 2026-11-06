@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { buildProductionReport, type ProductionBatch, type ProductionBatchEvent, type ProductionPlan } from "@/lib/domain/production-analytics";
 import { SignOutButton } from "@/components/sign-out-button";
@@ -31,6 +31,7 @@ function csvCell(value: string | number) {
 
 export function OperationalReportWorkspace({ workspaceId, workspaceName, role }: { workspaceId: string; workspaceName: string; role: string }) {
   const supabase = useMemo(() => createClient(), []);
+  const requestSequence = useRef(0);
   const [from, setFrom] = useState(() => shiftDate(todayJakarta(), -30));
   const [to, setTo] = useState(() => todayJakarta());
   const [plans, setPlans] = useState<ProductionPlan[]>([]);
@@ -42,12 +43,14 @@ export function OperationalReportWorkspace({ workspaceId, workspaceName, role }:
   const [reloadKey, setReloadKey] = useState(0);
 
   const load = useCallback(async () => {
+    const requestId = ++requestSequence.current;
     setLoading(true);
     setError("");
     const [planResult, menuResult] = await Promise.all([
       supabase.from("menu_plans").select("id,menu_id,planned_date,portion_count,status").eq("workspace_id", workspaceId).gte("planned_date", from).lte("planned_date", to).order("planned_date"),
       supabase.from("menu_items").select("id,name").eq("workspace_id", workspaceId).order("name"),
     ]);
+    if (requestId !== requestSequence.current) return;
     if (planResult.error || menuResult.error) {
       setError(planResult.error?.message ?? menuResult.error?.message ?? "Gagal memuat laporan operasional.");
       setPlans([]); setBatches([]); setEvents([]); setMenus([]);
@@ -64,6 +67,7 @@ export function OperationalReportWorkspace({ workspaceId, workspaceName, role }:
         supabase.from("production_batches").select("id,menu_plan_id,portion_count,status,started_at,completed_at").eq("workspace_id", workspaceId).in("menu_plan_id", ids),
         supabase.from("production_batch_events").select("id,batch_id,action,occurred_at,before_data,after_data").eq("workspace_id", workspaceId).gte("occurred_at", `${from}T00:00:00+07:00`).lte("occurred_at", `${to}T23:59:59.999+07:00`).order("occurred_at", { ascending: false }),
       ]);
+      if (requestId !== requestSequence.current) return;
       if (batchResult.error || eventResult.error) {
         setError(batchResult.error?.message ?? eventResult.error?.message ?? "Gagal memuat riwayat batch.");
         setPlans(nextPlans); setMenus(nextMenus); setBatches([]); setEvents([]);
@@ -73,6 +77,7 @@ export function OperationalReportWorkspace({ workspaceId, workspaceName, role }:
       nextBatches = (batchResult.data ?? []) as ProductionBatch[];
       nextEvents = (eventResult.data ?? []) as ProductionBatchEvent[];
     }
+    if (requestId !== requestSequence.current) return;
     setPlans(nextPlans); setMenus(nextMenus); setBatches(nextBatches); setEvents(nextEvents);
     setLoading(false);
   }, [supabase, workspaceId, from, to]);
