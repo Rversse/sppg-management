@@ -114,8 +114,11 @@ export function buildProductionReport(
       blockedBatches: group.batches.filter((batch) => batch.status === "blocked").length,
       estimatedDurationMinutes: (() => {
         const menu = menus.find((item) => item.id === menuId);
-        const values = [menu?.prep_duration_minutes, menu?.cook_duration_minutes].filter((value): value is number => typeof value === "number" && Number.isFinite(value) && value >= 0);
-        return values.length ? values.reduce((sum, value) => sum + value, 0) : null;
+        const prep = menu?.prep_duration_minutes;
+        const cook = menu?.cook_duration_minutes;
+        if (typeof prep !== "number" || typeof cook !== "number") return null;
+        if (!Number.isFinite(prep) || !Number.isFinite(cook) || prep < 0 || cook < 0) return null;
+        return prep + cook;
       })(),
       averageDurationMinutes: menuDurations.length
         ? Math.round(menuDurations.reduce((sum, value) => sum + value, 0) / menuDurations.length)
