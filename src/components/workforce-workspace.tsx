@@ -37,7 +37,7 @@ export function WorkforceWorkspace({workspaceId,workspaceName,role,timezone}:Pro
  const canDelete= ["owner","admin"].includes(role);
 
  const load=useCallback(async()=>{
-  const requestId=++loadSequence.current;setLoading(true);setError("");setRecords({});
+  const requestId=++loadSequence.current;setLoading(true);setError("");setRecords({});setSelectedAttendanceIds(new Set());
   const [sectionResult,volunteerResult,attendanceResult]=await Promise.all([
    supabase.from("sections").select("id,name").eq("workspace_id",workspaceId).order("sort_order").order("name"),
    supabase.from("volunteers").select("id,full_name,section_id,status,daily_wage,joined_on,notes").eq("workspace_id",workspaceId).order("full_name"),
@@ -89,7 +89,8 @@ export function WorkforceWorkspace({workspaceId,workspaceName,role,timezone}:Pro
 
  function setAttendance(id:string,status:Attendance["status"]){
   setRecords(prev=>({...prev,[id]:{volunteer_id:id,status,clock_in:prev[id]?.clock_in??null,clock_out:prev[id]?.clock_out??null,notes:prev[id]?.notes??null}}));
- } function applyBulkAttendance(ids:string[]){
+ }
+ function applyBulkAttendance(ids:string[]){
   if(ids.length===0){setError("Pilih relawan atau bagian kerja terlebih dahulu.");return;}
   setRecords(prev=>{const next={...prev};for(const id of ids)next[id]={volunteer_id:id,status:bulkStatus,clock_in:prev[id]?.clock_in??null,clock_out:prev[id]?.clock_out??null,notes:prev[id]?.notes??null};return next;});
   setNotice("Status "+statusLabels[bulkStatus]+" diterapkan ke "+ids.length+" relawan. Simpan absensi untuk menyimpan perubahan.");
