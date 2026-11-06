@@ -41,8 +41,9 @@ The application is not a payroll system. Do not add payroll runs, payslips, sala
 - [x] Production batch splitting with planned-portion guardrails
 - [x] Batch assignment to active volunteers
 - [x] Blocked-batch reason capture and append-only batch change history
-- [ ] Batch duration analytics and bottleneck summaries by stage
-- [ ] Operational summaries by date and menu
+- [x] Batch duration analytics and blocker-reason summaries from the append-only batch audit
+- [x] Date-range operational summaries by menu with CSV export
+- [ ] Stage-level actual duration tracking (requires explicit per-stage start/finish events)
 - [ ] Menu duplication/versioning for recurring recipes
 
 ## Phase 3 — Virtual Office
