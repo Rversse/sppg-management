@@ -67,15 +67,6 @@ begin
         using errcode = '23514';
     end if;
 
-    if exists (
-      select 1 from public.production_batches
-      where workspace_id = new.workspace_id
-        and menu_plan_id = new.id
-        and status = 'cancelled'
-    ) then
-      raise exception 'Rencana tidak dapat diselesaikan selama masih ada batch yang dibatalkan.'
-        using errcode = '23514';
-    end if;
   end if;
   return new;
 end;
