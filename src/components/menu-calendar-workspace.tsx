@@ -7,7 +7,7 @@ import { SignOutButton } from "@/components/sign-out-button";
 
 type Menu = { id: string; name: string; status: "draft" | "active" | "archived" };
 type Status = "planned" | "preparing" | "ready" | "completed" | "cancelled";
-type Plan = { id: string; menu_id: string; planned_date: string; portion_count: number; status: Status; production_notes: string | null };
+type Plan = { id: string; menu_id: string; planned_date: string; portion_count: number; status: Status; production_notes: string | null; hasBatches: boolean };
 const statusOptions: { value: Status; label: string }[] = [
   { value: "planned", label: "Terencana" }, { value: "preparing", label: "Diproses" },
   { value: "ready", label: "Siap" }, { value: "completed", label: "Selesai" }, { value: "cancelled", label: "Dibatalkan" }
@@ -49,13 +49,19 @@ export function MenuCalendarWorkspace({ workspaceId, workspaceName, role }: { wo
     const sequence = ++loadSequence.current;
     setLoading(true); setError("");
     const start = monday(selectedDate), end = addDays(start, 6);
-    const [m, p] = await Promise.all([
+    const [m, p, b] = await Promise.all([
       supabase.from("menu_items").select("id,name,status").eq("workspace_id", workspaceId).neq("status", "archived").order("name"),
-      supabase.from("menu_plans").select("id,menu_id,planned_date,portion_count,status,production_notes").eq("workspace_id", workspaceId).gte("planned_date", start).lte("planned_date", end).order("planned_date")
+      supabase.from("menu_plans").select("id,menu_id,planned_date,portion_count,status,production_notes").eq("workspace_id", workspaceId).gte("planned_date", start).lte("planned_date", end).order("planned_date"),
+      supabase.from("production_batches").select("menu_plan_id").eq("workspace_id", workspaceId)
     ]);
     if (sequence !== loadSequence.current) return;
-    if (m.error || p.error) setError(m.error?.message ?? p.error?.message ?? "Gagal memuat kalender.");
-    else { setMenus(m.data ?? []); setPlans(p.data ?? []); if (!menuId && m.data?.length) setMenuId(m.data[0].id); }
+    if (m.error || p.error || b.error) setError(m.error?.message ?? p.error?.message ?? b.error?.message ?? "Gagal memuat kalender.");
+    else {
+      const plansWithHistory = new Set((b.data ?? []).map(row => row.menu_plan_id));
+      setMenus(m.data ?? []);
+      setPlans((p.data ?? []).map(plan => ({ ...plan, hasBatches: plansWithHistory.has(plan.id) })));
+      if (!menuId && m.data?.length) setMenuId(m.data[0].id);
+    }
     setLoading(false);
   }, [supabase, workspaceId, selectedDate, menuId]);
   useEffect(() => { void load(); }, [load]);
@@ -75,6 +81,7 @@ export function MenuCalendarWorkspace({ workspaceId, workspaceName, role }: { wo
     if (e) setError(e.message); else { setNotice("Status produksi diperbarui."); await load(); } setBusy(false);
   }
   async function remove(plan: Plan) {
+    if (plan.hasBatches) { setError("Rencana yang memiliki riwayat batch tidak dapat dihapus. Gunakan status Dibatalkan."); return; }
     if (!window.confirm("Hapus rencana menu ini?")) return;
     setBusy(true); const { error: e } = await supabase.from("menu_plans").delete().eq("id", plan.id).eq("workspace_id", workspaceId);
     if (e) setError(e.message); else { setNotice("Rencana menu dihapus."); await load(); } setBusy(false);
@@ -99,7 +106,7 @@ export function MenuCalendarWorkspace({ workspaceId, workspaceName, role }: { wo
           <label className="block space-y-1.5 text-xs font-medium text-[var(--muted)]">Catatan operasional<textarea rows={3} value={notes} onChange={e => setNotes(e.target.value)} className={input} placeholder="Pembagian batch, kebutuhan khusus, atau catatan persiapan..." /></label>
         </div><button disabled={busy || menus.length === 0} className={button + " mt-4 w-full"}>{busy ? "Menyimpan..." : "Simpan rencana"}</button>{menus.length === 0 && <p className="mt-3 text-xs text-[var(--muted)]">Belum ada menu. Buat menu di <Link className="text-[var(--green)] underline" href="/menu-bank">Bank Menu</Link>.</p>}</form>}
         <section className="rounded-xl border border-[var(--line)] bg-white p-5"><div className="flex items-center justify-between gap-3"><div><h2 className="font-semibold">Rencana produksi</h2><p className="mt-1 text-sm text-[var(--muted)]">{dateLabel(selectedDate, { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</p></div><span className="text-xs text-[var(--muted)]">{dayPlans.length} catatan</span></div>
-          {loading ? <p className="py-10 text-center text-sm text-[var(--muted)]">Memuat kalender...</p> : dayPlans.length === 0 ? <p className="mt-5 rounded-lg border border-dashed border-[var(--line)] px-4 py-12 text-center text-sm text-[var(--muted)]">Belum ada rencana menu pada tanggal ini.</p> : <div className="mt-4 space-y-3">{dayPlans.map(plan => <article key={plan.id} className="rounded-lg border border-[var(--line)] p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-semibold">{menuMap.get(plan.menu_id)?.name ?? "Menu tidak ditemukan"}</h3><p className="mt-1 text-sm text-[var(--muted)]">{plan.portion_count.toLocaleString("id-ID")} porsi · {statusOptions.find(s => s.value === plan.status)?.label}</p></div>{canManage && <div className="flex items-center gap-2"><select disabled={busy} value={plan.status} onChange={e => void changeStatus(plan, e.target.value as Status)} className="rounded-lg border border-[var(--line)] bg-white px-2 py-2 text-xs">{statusOptions.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}</select>{plan.status === "completed" ? <span className="text-xs text-[var(--muted)]">Riwayat terkunci</span> : <button disabled={busy} onClick={() => void remove(plan)} className="text-xs text-red-700">Hapus</button>}</div>}</div>{plan.production_notes && <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-[var(--muted)]">{plan.production_notes}</p>}</article>)}</div>}
+          {loading ? <p className="py-10 text-center text-sm text-[var(--muted)]">Memuat kalender...</p> : dayPlans.length === 0 ? <p className="mt-5 rounded-lg border border-dashed border-[var(--line)] px-4 py-12 text-center text-sm text-[var(--muted)]">Belum ada rencana menu pada tanggal ini.</p> : <div className="mt-4 space-y-3">{dayPlans.map(plan => <article key={plan.id} className="rounded-lg border border-[var(--line)] p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-semibold">{menuMap.get(plan.menu_id)?.name ?? "Menu tidak ditemukan"}</h3><p className="mt-1 text-sm text-[var(--muted)]">{plan.portion_count.toLocaleString("id-ID")} porsi · {statusOptions.find(s => s.value === plan.status)?.label}</p></div>{canManage && <div className="flex items-center gap-2"><select disabled={busy} value={plan.status} onChange={e => void changeStatus(plan, e.target.value as Status)} className="rounded-lg border border-[var(--line)] bg-white px-2 py-2 text-xs">{statusOptions.filter(s => !(plan.status === "completed" && s.value === "cancelled")).map(s => <option key={s.value} value={s.value}>{s.label}</option>)}</select>{plan.status === "completed" || plan.hasBatches ? <span className="text-xs text-[var(--muted)]">Riwayat terkunci</span> : <button disabled={busy} onClick={() => void remove(plan)} className="text-xs text-red-700">Hapus</button>}</div>}</div>{plan.production_notes && <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-[var(--muted)]">{plan.production_notes}</p>}</article>)}</div>}
         </section>
       </div>
       <p className="mt-6 text-xs leading-5 text-[var(--muted)]">Rencana menu dan status produksi tersimpan per workspace. Mengubah rencana tidak mengubah komposisi resep di Bank Menu.</p>
