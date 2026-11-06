@@ -8,8 +8,8 @@ import { SignOutButton } from "@/components/sign-out-button";
 
 type Menu = { id: string; name: string };
 const input = "rounded-lg border border-[var(--line)] bg-white px-3 py-2 text-sm";
-function todayJakarta() {
-  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
+function todayInTimezone(timezone: string) {
+  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
   const get = (key: string) => parts.find((part) => part.type === key)?.value ?? "";
   return `${get("year")}-${get("month")}-${get("day")}`;
 }
@@ -29,11 +29,11 @@ function csvCell(value: string | number) {
   return '"' + String(value).replaceAll('"', '""') + '"';
 }
 
-export function OperationalReportWorkspace({ workspaceId, workspaceName, role }: { workspaceId: string; workspaceName: string; role: string }) {
+export function OperationalReportWorkspace({ workspaceId, workspaceName, role, timezone }: { workspaceId: string; workspaceName: string; role: string; timezone: string }) {
   const supabase = useMemo(() => createClient(), []);
   const requestSequence = useRef(0);
-  const [from, setFrom] = useState(() => shiftDate(todayJakarta(), -30));
-  const [to, setTo] = useState(() => todayJakarta());
+  const [from, setFrom] = useState(() => shiftDate(todayInTimezone(timezone), -30));
+  const [to, setTo] = useState(() => todayInTimezone(timezone));
   const [plans, setPlans] = useState<ProductionPlan[]>([]);
   const [batches, setBatches] = useState<ProductionBatch[]>([]);
   const [events, setEvents] = useState<ProductionBatchEvent[]>([]);
@@ -126,7 +126,7 @@ export function OperationalReportWorkspace({ workspaceId, workspaceName, role }:
         </section>
         <section className="mt-6 rounded-xl border border-[var(--line)] bg-white p-5">
           <h2 className="font-semibold">Riwayat hambatan produksi</h2><p className="mt-1 text-xs text-[var(--muted)]">Dihitung dari transisi batch ke status Terhambat pada riwayat audit.</p>
-          {report.blockers.length === 0 ? <Empty text="Belum ada hambatan yang tercatat pada rentang ini." /> : <div className="mt-4 space-y-2">{report.blockers.map((item) => <article key={item.reason.toLocaleLowerCase("id-ID")} className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-[#f7f8f6] p-3"><div><p className="text-sm font-medium">{item.reason}</p><p className="mt-1 text-xs text-[var(--muted)]">Terakhir: {new Intl.DateTimeFormat("id-ID", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Jakarta" }).format(new Date(item.latestAt))}</p></div><span className="rounded-md border border-[var(--line)] bg-white px-2.5 py-1 text-xs">{item.occurrences} kejadian</span></article>)}</div>}
+          {report.blockers.length === 0 ? <Empty text="Belum ada hambatan yang tercatat pada rentang ini." /> : <div className="mt-4 space-y-2">{report.blockers.map((item) => <article key={item.reason.toLocaleLowerCase("id-ID")} className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-[#f7f8f6] p-3"><div><p className="text-sm font-medium">{item.reason}</p><p className="mt-1 text-xs text-[var(--muted)]">Terakhir: {new Intl.DateTimeFormat("id-ID", { dateStyle: "medium", timeStyle: "short", timeZone: timezone }).format(new Date(item.latestAt))}</p></div><span className="rounded-md border border-[var(--line)] bg-white px-2.5 py-1 text-xs">{item.occurrences} kejadian</span></article>)}</div>}
         </section>
       </>}
       <p className="mt-6 text-xs leading-5 text-[var(--muted)]">Durasi aktual dihitung dari waktu mulai hingga selesai batch. Estimasi adalah jumlah durasi persiapan dan memasak pada Bank Menu; perbandingan ini bersifat indikatif karena estimasi resep belum dinormalisasi terhadap jumlah porsi atau ukuran batch. Riwayat hambatan berasal dari audit perubahan status.</p>
