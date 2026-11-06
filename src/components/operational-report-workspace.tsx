@@ -87,8 +87,8 @@ export function OperationalReportWorkspace({ workspaceId, workspaceName, role }:
 
   function exportCsv() {
     const rows = [
-      ["Menu", "Jumlah rencana", "Total porsi", "Jumlah batch", "Batch selesai", "Batch terhambat", "Rata-rata durasi batch selesai (menit)"],
-      ...report.menuSummaries.map((item) => [item.menuName, item.planCount, item.plannedPortions, item.batchCount, item.completedBatches, item.blockedBatches, item.averageDurationMinutes ?? ""]),
+      ["Menu", "Jumlah rencana", "Total porsi", "Jumlah batch", "Batch selesai", "Batch terhambat", "Estimasi menu (menit)", "Rata-rata aktual batch (menit)", "Selisih aktual-estimasi (menit)"],
+      ...report.menuSummaries.map((item) => [item.menuName, item.planCount, item.plannedPortions, item.batchCount, item.completedBatches, item.blockedBatches, item.estimatedDurationMinutes ?? "", item.averageDurationMinutes ?? "", item.durationVarianceMinutes ?? ""]),
     ];
     const csv = "\uFEFF" + rows.map((row) => row.map((cell) => csvCell(cell)).join(",")).join("\r\n");
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
