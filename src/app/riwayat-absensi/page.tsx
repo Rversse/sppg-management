@@ -5,5 +5,5 @@ export const dynamic = "force-dynamic";
 
 export default async function AttendanceHistoryPage() {
   const { workspace, role } = await requireWorkspace();
-  return <AttendanceHistoryWorkspace workspaceId={workspace.id} workspaceName={workspace.name} role={role} />;
+  return <AttendanceHistoryWorkspace workspaceId={workspace.id} workspaceName={workspace.name} role={role} timezone={workspace.timezone} />;
 }
