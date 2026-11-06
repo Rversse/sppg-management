@@ -25,6 +25,16 @@ The dedicated project is `sppg-management` (reference: `sjmjgfndvjubicypaeri`, r
 
 Migration `202611040007` was intentionally skipped. Apply migrations in numeric order; do not reapply migrations already recorded in Supabase migration history.
 
+The following production-integrity and timezone migrations were added after the baseline list above. They are present in this branch but have **not** been applied to the connected Supabase project as part of this work:
+
+21. `202611060001_enforce_production_completion_in_database.sql`
+22. `202611060002_protect_completed_production_plans.sql`
+23. `202611060003_protect_completed_menu_plan_records.sql`
+24. `202611060004_prevent_batches_on_completed_plans.sql`
+25. `202611060005_workspace_timezone_schedule_versions.sql`
+
+Review these migrations and confirm the target project's migration history before applying them. Do not mark them as applied or run them against the project until the release/migration review is complete.
+
 Do not reuse this setup against unrelated Supabase projects.
 
 ## Application environment
