@@ -29,6 +29,7 @@ export default async function Home() {
     { title: "Bank menu", description: "Komposisi bahan, racikan bumbu, dan langkah produksi.", href: "/menu-bank", icon: ChefHat },
     { title: "Kalender menu", description: "Rencanakan menu harian, jumlah porsi, dan status produksi.", href: "/kalender-menu", icon: CalendarDays },
     { title: "Papan produksi", description: "Pantau antrean, status, komposisi, dan instruksi produksi.", href: "/papan-produksi", icon: ChefHat },
+    { title: "Laporan operasional", description: "Analisis porsi, durasi batch, kinerja menu, dan hambatan produksi.", href: "/laporan-operasional", icon: Activity },
     { title: "Grup & jadwal kerja", description: "Atur grup relawan, jam kerja, hari libur, dan total gaji harian terjadwal.", href: "/jadwal-kerja", icon: Clock3 },
     { title: "Roster harian", description: "Bandingkan personel terjadwal dengan catatan kehadiran aktual.", href: "/roster-harian", icon: ClipboardCheck },
     { title: "Riwayat absensi", description: "Telusuri catatan kehadiran lintas tanggal dan ekspor CSV.", href: "/riwayat-absensi", icon: CalendarDays },
