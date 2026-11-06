@@ -10,17 +10,17 @@ type Section = { id: string; name: string };
 type Volunteer = { id: string; full_name: string; section_id: string | null; daily_wage: number | null; status: "active" | "inactive" };
 type ScheduleVersion = { group_id: string; group_snapshot: Group; members_snapshot: Volunteer[] };
 type Attendance = { volunteer_id: string; status: "present" | "permission" | "sick" | "absent"; clock_in: string | null; clock_out: string | null };
-type Props = { workspaceId: string; workspaceName: string; role: string };
+type Props = { workspaceId: string; workspaceName: string; role: string; timezone: string };
 const statusLabel = { present: "Hadir", permission: "Izin", sick: "Sakit", absent: "Alpa" };
 const currency = (value: number) => new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(value);
 
-function todayJakarta() {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date());
+function todayInTimezone(timezone: string) {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: timezone || "Asia/Jakarta" }).format(new Date());
 }
 
-export function DailyRosterWorkspace({ workspaceId, workspaceName, role }: Props) {
+export function DailyRosterWorkspace({ workspaceId, workspaceName, role, timezone }: Props) {
   const db = useMemo(() => createClient(), []);
-  const [date, setDate] = useState(todayJakarta);
+  const [date, setDate] = useState(() => todayInTimezone(timezone));
   const [sections, setSections] = useState<Section[]>([]);
   const [people, setPeople] = useState<Volunteer[]>([]);
   const [versions, setVersions] = useState<ScheduleVersion[]>([]);
@@ -32,7 +32,7 @@ export function DailyRosterWorkspace({ workspaceId, workspaceName, role }: Props
   const day = new Date(date + "T00:00:00Z").getUTCDay();
   const workDay = day === 0 ? 7 : day;
   const holiday = day === 0 || day === 6;
-  const dateLabel = new Intl.DateTimeFormat("id-ID", { dateStyle: "full", timeZone: "Asia/Jakarta" }).format(new Date(date + "T12:00:00+07:00"));
+  const dateLabel = new Intl.DateTimeFormat("id-ID", { dateStyle: "full", timeZone: "UTC" }).format(new Date(date + "T12:00:00Z"));
 
   const load = useCallback(async () => {
     const sequence = ++loadSequence.current;
