@@ -8,19 +8,19 @@ import { createClient } from "@/lib/supabase/client";
 type Section={id:string;name:string};
 type Volunteer={id:string;full_name:string;section_id:string|null;status:"active"|"inactive";daily_wage:number|null;joined_on:string|null;notes:string|null};
 type Attendance={volunteer_id:string;status:"present"|"permission"|"sick"|"absent";clock_in:string|null;clock_out:string|null;notes:string|null};
-type Props={workspaceId:string;workspaceName:string;role:string};
+type Props={workspaceId:string;workspaceName:string;role:string;timezone:string};
 
 const statusLabels={present:"Hadir",permission:"Izin",sick:"Sakit",absent:"Alpa"};
 const field="w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2.5 text-sm outline-none focus:border-[var(--green)]";
 const button="inline-flex items-center justify-center rounded-lg bg-[var(--green)] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50";
 
-export function WorkforceWorkspace({workspaceId,workspaceName,role}:Props){
+export function WorkforceWorkspace({workspaceId,workspaceName,role,timezone}:Props){
  const supabase=useMemo(()=>createClient(),[]);const loadSequence=useRef(0);
  const [tab,setTab]=useState<"volunteers"|"attendance">("volunteers");
  const [sections,setSections]=useState<Section[]>([]);
  const [volunteers,setVolunteers]=useState<Volunteer[]>([]);
  const [records,setRecords]=useState<Record<string,Attendance>>({});
- const [date,setDate]=useState(()=>new Date().toLocaleDateString("en-CA",{timeZone:"Asia/Jakarta"}));
+ const [date,setDate]=useState(()=>new Date().toLocaleDateString("en-CA",{timeZone:timezone||"Asia/Jakarta"}));
  const [search,setSearch]=useState("");const [sectionName,setSectionName]=useState("");
  const [sectionFilter,setSectionFilter]=useState("all");
  const [loading,setLoading]=useState(true);
@@ -88,8 +88,8 @@ export function WorkforceWorkspace({workspaceId,workspaceName,role}:Props){
  }
  async function saveAttendance(){
   setBusy(true);setError("");setNotice("");
-  const selectedDate=new Date(date+"T12:00:00+07:00");
-  if([0,6].includes(selectedDate.getDay())){setError("Absensi tidak dapat dicatat pada Sabtu atau Minggu karena merupakan hari libur.");setBusy(false);return;}
+  const selectedWeekday=new Date(date+"T12:00:00Z").getUTCDay();
+  if([0,6].includes(selectedWeekday)){setError("Absensi tidak dapat dicatat pada Sabtu atau Minggu karena merupakan hari libur.");setBusy(false);return;}
   const {data:{user}}=await supabase.auth.getUser();
   if(!user){setError("Sesi login berakhir. Masuk kembali.");setBusy(false);return;}
   const rowsToSave=volunteers.filter(v=>v.status==="active"&&records[v.id]);
