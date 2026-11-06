@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { SignOutButton } from "@/components/sign-out-button";
 
@@ -25,8 +25,9 @@ function localDate(offset = 0) {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(date);
 }
 function csvCell(value: string | number | null | undefined) {
-  const text = String(value ?? "");
-  return '"' + text.replaceAll('"', '""') + '"';
+  const raw = String(value ?? "");
+  const safe = /^[\t\r\n ]*[=+\\-@]/.test(raw) ? "'" + raw : raw;
+  return '"' + safe.replaceAll('"', '""') + '"';
 }
 
 export function AttendanceHistoryWorkspace({ workspaceId, workspaceName, role }: { workspaceId: string; workspaceName: string; role: string }) {
@@ -39,9 +40,11 @@ export function AttendanceHistoryWorkspace({ workspaceId, workspaceName, role }:
   const [sections, setSections] = useState<Section[]>([]);
   const [rows, setRows] = useState<AttendanceRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const loadSequence = useRef(0);
   const [error, setError] = useState("");
 
   const load = useCallback(async () => {
+    const sequence = ++loadSequence.current;
     if (from > to) {
       setError("Tanggal awal tidak boleh melewati tanggal akhir.");
       setRows([]);
@@ -61,6 +64,7 @@ export function AttendanceHistoryWorkspace({ workspaceId, workspaceName, role }:
         .order("created_at", { ascending: false })
         .limit(5000),
     ]);
+    if (sequence !== loadSequence.current) return;
     if (sectionResult.error || attendanceResult.error) {
       setError(sectionResult.error?.message ?? attendanceResult.error?.message ?? "Gagal memuat riwayat absensi.");
       setRows([]);
@@ -103,7 +107,7 @@ export function AttendanceHistoryWorkspace({ workspaceId, workspaceName, role }:
     anchor.href = url;
     anchor.download = `riwayat-absensi-${from}-sampai-${to}.csv`;
     anchor.click();
-    URL.revokeObjectURL(url);
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
   return <main className="min-h-screen bg-[var(--background)]">
