@@ -68,8 +68,18 @@ export function ProductionBoardWorkspace({ workspaceId, workspaceName, role }: {
   useEffect(() => { void load(); }, [load]);
 
   async function setStatus(plan: Plan, status: Status) {
-    if (status === "completed" && batches.some(b => b.menu_plan_id === plan.id && b.status !== "completed" && b.status !== "cancelled")) {
-      setError("Rencana belum dapat diselesaikan karena masih ada batch yang belum selesai atau dibatalkan."); return;
+    if (status === "completed") {
+      const planBatches = batches.filter(b => b.menu_plan_id === plan.id);
+      const unfinished = planBatches.some(b => b.status !== "completed" && b.status !== "cancelled");
+      const unallocated = remainingPortions(plan);
+      if (planBatches.length === 0 || unallocated > 0 || unfinished) {
+        setError(planBatches.length === 0
+          ? "Rencana belum dapat diselesaikan karena belum memiliki batch produksi."
+          : unallocated > 0
+            ? `Rencana belum dapat diselesaikan. Masih ada ${unallocated.toLocaleString("id-ID")} porsi yang belum dialokasikan ke batch.`
+            : "Rencana belum dapat diselesaikan karena masih ada batch yang belum selesai atau dibatalkan.");
+        return;
+      }
     }
     setBusy(plan.id); setError(""); setNotice("");
     const user = (await supabase.auth.getUser()).data.user;
