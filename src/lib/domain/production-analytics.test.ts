@@ -7,7 +7,10 @@ describe("buildProductionReport", () => {
     { id: "p2", menu_id: "m1", planned_date: "2026-11-07", portion_count: 50, status: "preparing" },
     { id: "p3", menu_id: "m2", planned_date: "2026-11-07", portion_count: 25, status: "planned" },
   ];
-  const menus = [{ id: "m1", name: "Nasi ayam" }, { id: "m2", name: "Sayur bening" }];
+  const menus = [
+    { id: "m1", name: "Nasi ayam", prep_duration_minutes: 30, cook_duration_minutes: 45 },
+    { id: "m2", name: "Sayur bening", prep_duration_minutes: 15, cook_duration_minutes: 20 },
+  ];
 
   it("summarizes portions, batches, and valid completed durations", () => {
     const report = buildProductionReport(plans, [
@@ -22,7 +25,7 @@ describe("buildProductionReport", () => {
     expect(report.completedBatches).toBe(2);
     expect(report.blockedBatches).toBe(1);
     expect(report.averageDurationMinutes).toBe(90);
-    expect(report.menuSummaries[0]).toMatchObject({ menuName: "Nasi ayam", plannedPortions: 150, averageDurationMinutes: 90 });
+    expect(report.menuSummaries[0]).toMatchObject({ menuName: "Nasi ayam", plannedPortions: 150, estimatedDurationMinutes: 75, averageDurationMinutes: 90, durationVarianceMinutes: 15 });
   });
 
   it("counts only new blocked transitions and groups repeated reasons", () => {
