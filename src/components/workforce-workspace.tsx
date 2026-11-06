@@ -20,6 +20,9 @@ export function WorkforceWorkspace({workspaceId,workspaceName,role,timezone}:Pro
  const [sections,setSections]=useState<Section[]>([]);
  const [volunteers,setVolunteers]=useState<Volunteer[]>([]);
  const [records,setRecords]=useState<Record<string,Attendance>>({});
+ const [attendanceSectionFilter,setAttendanceSectionFilter]=useState("all");
+ const [selectedAttendanceIds,setSelectedAttendanceIds]=useState<Set<string>>(()=>new Set());
+ const [bulkStatus,setBulkStatus]=useState<Attendance["status"]>("present");
  const [date,setDate]=useState(()=>new Date().toLocaleDateString("en-CA",{timeZone:timezone||"Asia/Jakarta"}));
  const [search,setSearch]=useState("");const [sectionName,setSectionName]=useState("");
  const [sectionFilter,setSectionFilter]=useState("all");
@@ -53,6 +56,7 @@ export function WorkforceWorkspace({workspaceId,workspaceName,role,timezone}:Pro
  const visible=useMemo(()=>volunteers.filter(v=>(v.full_name.toLowerCase().includes(search.toLowerCase()))&&(sectionFilter==="all"||v.section_id===sectionFilter)),[volunteers,search,sectionFilter]);
  const counts=useMemo(()=>({total:volunteers.length,active:volunteers.filter(v=>v.status==="active").length,sections:sections.length}),[volunteers,sections]);
  const attendanceCounts=useMemo(()=>Object.values(records).reduce((acc,r)=>{acc[r.status]=(acc[r.status]??0)+1;return acc;},{present:0,permission:0,sick:0,absent:0} as Record<Attendance["status"],number>),[records]);
+ const attendanceVisible=useMemo(()=>volunteers.filter(v=>(v.status==="active"||Boolean(records[v.id]))&&(attendanceSectionFilter==="all"||v.section_id===attendanceSectionFilter)),[volunteers,records,attendanceSectionFilter]);
 
  function startCreate(){setEditing(null);setForm({full_name:"",section_id:"",daily_wage:"",joined_on:"",notes:"",status:"active"});setShowForm(true);setError("");setNotice("");}
  function startEdit(v:Volunteer){setEditing(v);setForm({full_name:v.full_name,section_id:v.section_id??"",daily_wage:v.daily_wage===null?"":String(v.daily_wage*1000),joined_on:v.joined_on??"",notes:v.notes??"",status:v.status});setShowForm(true);setError("");setNotice("");}
@@ -85,6 +89,11 @@ export function WorkforceWorkspace({workspaceId,workspaceName,role,timezone}:Pro
 
  function setAttendance(id:string,status:Attendance["status"]){
   setRecords(prev=>({...prev,[id]:{volunteer_id:id,status,clock_in:prev[id]?.clock_in??null,clock_out:prev[id]?.clock_out??null,notes:prev[id]?.notes??null}}));
+ } function applyBulkAttendance(ids:string[]){
+  if(ids.length===0){setError("Pilih relawan atau bagian kerja terlebih dahulu.");return;}
+  setRecords(prev=>{const next={...prev};for(const id of ids)next[id]={volunteer_id:id,status:bulkStatus,clock_in:prev[id]?.clock_in??null,clock_out:prev[id]?.clock_out??null,notes:prev[id]?.notes??null};return next;});
+  setNotice("Status "+statusLabels[bulkStatus]+" diterapkan ke "+ids.length+" relawan. Simpan absensi untuk menyimpan perubahan.");
+  setError("");
  }
  async function saveAttendance(){
   setBusy(true);setError("");setNotice("");
