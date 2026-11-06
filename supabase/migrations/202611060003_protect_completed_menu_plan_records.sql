@@ -1,6 +1,5 @@
--- Preserve completed production plan context as an immutable operational record.
--- Reopen the plan before changing its production-defining fields; completed plans
--- cannot be deleted because their batches and calendar context are historical data.
+-- Preserve production plan context whenever a batch has ever been created.
+-- Completed plans can only be reopened; cancellation is not a way to unlock history.
 
 create or replace function private.protect_completed_menu_plan()
 returns trigger
@@ -8,9 +7,25 @@ language plpgsql
 set search_path = ''
 as $$
 begin
-  if old.status = 'completed' then
-    if tg_op = 'DELETE' then
+  if tg_op = 'DELETE' then
+    if exists (
+      select 1 from public.production_batches b
+      where b.workspace_id = old.workspace_id and b.menu_plan_id = old.id
+    ) then
+      raise exception 'Rencana yang sudah memiliki riwayat batch produksi tidak dapat dihapus. Gunakan status Dibatalkan.'
+        using errcode = '23514';
+    end if;
+
+    if old.status = 'completed' then
       raise exception 'Rencana produksi yang sudah selesai tidak dapat dihapus.'
+        using errcode = '23514';
+    end if;
+    return old;
+  end if;
+
+  if old.status = 'completed' then
+    if new.status = 'cancelled' then
+      raise exception 'Rencana selesai harus dibuka kembali sebelum dapat dibatalkan.'
         using errcode = '23514';
     end if;
 
@@ -22,15 +37,13 @@ begin
     end if;
   end if;
 
-  if tg_op = 'DELETE' then
-    return old;
-  end if;
   return new;
 end;
 $$;
 
 revoke all on function private.protect_completed_menu_plan() from public, anon, authenticated;
 
+drop trigger if exists menu_plans_completed_record_guard on public.menu_plans;
 create trigger menu_plans_completed_record_guard
 before update or delete on public.menu_plans
 for each row execute function private.protect_completed_menu_plan();
