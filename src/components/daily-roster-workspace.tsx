@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { SignOutButton } from "@/components/sign-out-button";
 
@@ -26,6 +26,7 @@ export function DailyRosterWorkspace({ workspaceId, workspaceName, role }: Props
   const [versions, setVersions] = useState<ScheduleVersion[]>([]);
   const [attendance, setAttendance] = useState<Record<string, Attendance>>({});
   const [loading, setLoading] = useState(true);
+  const loadSequence = useRef(0);
   const [error, setError] = useState("");
 
   const day = new Date(date + "T00:00:00Z").getUTCDay();
@@ -34,6 +35,7 @@ export function DailyRosterWorkspace({ workspaceId, workspaceName, role }: Props
   const dateLabel = new Intl.DateTimeFormat("id-ID", { dateStyle: "full", timeZone: "Asia/Jakarta" }).format(new Date(date + "T12:00:00+07:00"));
 
   const load = useCallback(async () => {
+    const sequence = ++loadSequence.current;
     setLoading(true);
     setError("");
     const [s, p, v, a] = await Promise.all([
@@ -42,6 +44,7 @@ export function DailyRosterWorkspace({ workspaceId, workspaceName, role }: Props
       db.from("volunteer_schedule_versions").select("group_id,group_snapshot,members_snapshot").eq("workspace_id", workspaceId).lte("valid_from", date).or(`valid_to.is.null,valid_to.gte.${date}`),
       db.from("attendance_records").select("volunteer_id,status,clock_in,clock_out").eq("workspace_id", workspaceId).eq("work_date", date)
     ]);
+    if (sequence !== loadSequence.current) return;
     const issue = s.error || p.error || v.error || a.error;
     if (issue) setError(issue.message);
     else {
