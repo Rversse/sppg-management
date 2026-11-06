@@ -85,6 +85,8 @@ export function buildProductionReport(
     if (event.action !== "UPDATE") continue;
     const after = event.after_data;
     const before = event.before_data;
+    const eventPlanId = after?.menu_plan_id ?? before?.menu_plan_id;
+    if (typeof eventPlanId !== "string" || !planById.has(eventPlanId)) continue;
     if (after?.status !== "blocked" || before?.status === "blocked") continue;
     const reason = typeof after.blocker_note === "string" ? after.blocker_note.trim() : "";
     if (!reason) continue;
