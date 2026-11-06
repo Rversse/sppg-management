@@ -19,10 +19,8 @@ type AttendanceRow = {
 const labels = { present: "Hadir", permission: "Izin", sick: "Sakit", absent: "Alpa" };
 const field = "w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2.5 text-sm outline-none focus:border-[var(--green)]";
 
-function localDate(offset = 0) {
-  const date = new Date();
-  date.setDate(date.getDate() + offset);
-  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(date);
+function localDate(timezone: string) {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: timezone || "Asia/Jakarta" }).format(new Date());
 }
 function csvCell(value: string | number | null | undefined) {
   const raw = String(value ?? "");
@@ -30,9 +28,9 @@ function csvCell(value: string | number | null | undefined) {
   return '"' + safe.replaceAll('"', '""') + '"';
 }
 
-export function AttendanceHistoryWorkspace({ workspaceId, workspaceName, role }: { workspaceId: string; workspaceName: string; role: string }) {
+export function AttendanceHistoryWorkspace({ workspaceId, workspaceName, role, timezone }: { workspaceId: string; workspaceName: string; role: string; timezone: string }) {
   const supabase = useMemo(() => createClient(), []);
-  const today = localDate();
+  const today = localDate(timezone);
   const [from, setFrom] = useState(() => today.slice(0, 7) + "-01");
   const [to, setTo] = useState(today);
   const [sectionId, setSectionId] = useState("all");
