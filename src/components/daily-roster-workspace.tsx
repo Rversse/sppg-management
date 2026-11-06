@@ -63,7 +63,7 @@ export function DailyRosterWorkspace({ workspaceId, workspaceName, role }: Props
   const sectionById = useMemo(() => new Map(sections.map((section) => [section.id, section.name])), [sections]);
   const activeVersions = holiday ? [] : versions.filter((version) => version.group_snapshot.weekdays.includes(workDay));
   const activeGroups = activeVersions.map((version) => version.group_snapshot);
-  const scheduledPeople = activeVersions.flatMap((version) => version.members_snapshot);
+  const scheduledPeople = activeVersions.flatMap((version) => version.members_snapshot).filter((person) => person.status === "active");
   const scheduledIds = new Set(scheduledPeople.map((person) => person.id));
   const recordedScheduled = scheduledPeople.filter((person) => attendance[person.id]);
   const attended = scheduledPeople.filter((person) => attendance[person.id]?.status === "present").length;
@@ -88,7 +88,7 @@ export function DailyRosterWorkspace({ workspaceId, workspaceName, role }: Props
       <section className="mt-6 rounded-xl border border-[var(--line)] bg-white p-5">
         <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="font-semibold">Roster per grup</h2><p className="mt-1 text-xs text-[var(--muted)]">Roster diambil dari snapshot efektif pada tanggal pilihan; status kehadiran tetap berasal dari modul Absensi.</p></div><p className="text-sm font-semibold">{currency(scheduledWage)} <span className="font-normal text-[var(--muted)]">gaji harian terjadwal</span></p></div>
         {loading ? <p className="py-10 text-center text-sm text-[var(--muted)]">Memuat roster...</p> : activeGroups.length === 0 ? <p className="py-10 text-center text-sm text-[var(--muted)]">Tidak ada grup yang dijadwalkan pada tanggal ini.</p> : <div className="mt-4 grid gap-4 xl:grid-cols-2">{activeGroups.map((group) => {
-          const groupMembers = activeVersions.find((version) => version.group_id === group.id)?.members_snapshot ?? [];
+          const groupMembers = (activeVersions.find((version) => version.group_id === group.id)?.members_snapshot ?? []).filter((person) => person.status === "active");
           return <article key={group.id} className="rounded-lg border border-[var(--line)] p-4"><div className="flex flex-wrap justify-between gap-2"><div><h3 className="font-semibold">{group.name}</h3><p className="text-xs text-[var(--muted)]">{sectionById.get(group.section_id) ?? "Bagian tidak ditemukan"}</p></div><p className="text-sm font-medium text-[var(--green)]">{group.start_time.slice(0, 5)}–{group.end_time.slice(0, 5)}</p></div>
             {groupMembers.length === 0 ? <p className="mt-3 text-sm text-[var(--muted)]">Belum ada anggota dalam grup ini.</p> : <ul className="mt-3 divide-y divide-[var(--line)]">{groupMembers.map((person) => { const record = attendance[person.id]; return <li key={person.id} className="flex flex-wrap items-center justify-between gap-2 py-2"><div><p className="text-sm font-medium">{person.full_name}</p><p className="text-xs text-[var(--muted)]">{person.daily_wage === null ? "Gaji harian belum diisi" : currency(person.daily_wage * 1000)}</p></div><span className={"rounded-full px-2.5 py-1 text-xs " + (record ? "bg-[#eef4ef] text-[var(--green)]" : "bg-[#f3f4f2] text-[var(--muted)]")}>{record ? statusLabel[record.status] : "Belum dicatat"}</span></li>; })}</ul>}
           </article>;
