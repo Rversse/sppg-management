@@ -5,5 +5,5 @@ export const dynamic = "force-dynamic";
 
 export default async function DailyRosterPage() {
   const { workspace, role } = await requireWorkspace();
-  return <DailyRosterWorkspace workspaceId={workspace.id} workspaceName={workspace.name} role={role} />;
+  return <DailyRosterWorkspace workspaceId={workspace.id} workspaceName={workspace.name} role={role} timezone={workspace.timezone} />;
 }
