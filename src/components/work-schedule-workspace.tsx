@@ -12,7 +12,7 @@ type Audit={id:number;entity_type:"group"|"membership";entity_id:string;group_id
 const days=[{n:1,l:"Sen"},{n:2,l:"Sel"},{n:3,l:"Rab"},{n:4,l:"Kam"},{n:5,l:"Jum"}];
 const input="w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2.5 text-sm";
 const money=(n:number)=>new Intl.NumberFormat("id-ID",{style:"currency",currency:"IDR",maximumFractionDigits:0}).format(n);
-export function WorkScheduleWorkspace({workspaceId,workspaceName,role}:{workspaceId:string;workspaceName:string;role:string}){
+export function WorkScheduleWorkspace({workspaceId,workspaceName,role,timezone}:{workspaceId:string;workspaceName:string;role:string;timezone:string}){
  const db=useMemo(()=>createClient(),[]);
  const [groups,setGroups]=useState<Group[]>([]),[people,setPeople]=useState<Person[]>([]),[members,setMembers]=useState<Member[]>([]),[sections,setSections]=useState<Section[]>([]),[history,setHistory]=useState<Audit[]>([]);
  const [name,setName]=useState(""),[sectionId,setSectionId]=useState(""),[start,setStart]=useState("07:00"),[end,setEnd]=useState("15:00"),[selectedDays,setSelectedDays]=useState([1,2,3,4,5]),[notes,setNotes]=useState("");
@@ -20,7 +20,7 @@ export function WorkScheduleWorkspace({workspaceId,workspaceName,role}:{workspac
  const [busy,setBusy]=useState(false),[loading,setLoading]=useState(true),[error,setError]=useState(""),[notice,setNotice]=useState("");
  const canManage=["owner","admin","hr","operations"].includes(role);
  const canViewHistory=["owner","admin","hr"].includes(role);
- const weekdayShort=new Intl.DateTimeFormat("en-US",{timeZone:"Asia/Jakarta",weekday:"short"}).format(new Date());
+ const weekdayShort=new Intl.DateTimeFormat("en-US",{timeZone:timezone||"Asia/Jakarta",weekday:"short"}).format(new Date());
  const todayDay=({Mon:1,Tue:2,Wed:3,Thu:4,Fri:5,Sat:6,Sun:7} as Record<string,number>)[weekdayShort]??6;
  const todayLabel=new Intl.DateTimeFormat("id-ID",{dateStyle:"full",timeZone:"Asia/Jakarta"}).format(new Date());
  const load=useCallback(async()=>{
