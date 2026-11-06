@@ -72,11 +72,11 @@ For production email delivery, configure a trusted custom SMTP provider and appr
 
 ## Verification performed
 
-- All five migrations are present in Supabase migration history.
-- Security advisor no longer reports the auto-RLS trigger as callable by anon/authenticated. It reports the authenticated workspace-bootstrap RPC as SECURITY DEFINER by design.
-- Confirmed RLS is enabled on workspaces, memberships, sections, volunteers, attendance, audit, and all menu tables, menu plans, production batches, and batch-event history, production batches, and batch-event history.
-- Confirmed `anon` has no SELECT privilege on those tables.
-- Performance advisor reports unused indexes on a newly provisioned, nearly empty database; reassess after realistic data volume and query patterns exist.
+- The baseline migration history was checked previously; re-verify the connected project migration table before applying any pending migration listed above.
+- A previous security review found the auto-RLS trigger unavailable to `anon` and `authenticated`; re-run the Security Advisor after the pending hardening migrations are applied.
+- RLS was previously confirmed on workspaces, memberships, sections, volunteers, attendance, audit, menu tables, menu plans, production batches, and batch-event history.
+- `anon` was previously confirmed to have no SELECT privilege on application tables.
+- Performance Advisor reported unused indexes on a newly provisioned, nearly empty database; reassess after realistic data volume and query patterns exist.
 
 ## First-run checklist
 
