@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { SignOutButton } from "@/components/sign-out-button";
 
@@ -35,6 +35,7 @@ export function MenuCalendarWorkspace({ workspaceId, workspaceName, role }: { wo
   const [portions, setPortions] = useState("");
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(true);
+  const loadSequence = useRef(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -45,12 +46,14 @@ export function MenuCalendarWorkspace({ workspaceId, workspaceName, role }: { wo
   const totalPortions = dayPlans.filter(p => p.status !== "cancelled").reduce((n, p) => n + p.portion_count, 0);
 
   const load = useCallback(async () => {
+    const sequence = ++loadSequence.current;
     setLoading(true); setError("");
     const start = monday(selectedDate), end = addDays(start, 6);
     const [m, p] = await Promise.all([
       supabase.from("menu_items").select("id,name,status").eq("workspace_id", workspaceId).neq("status", "archived").order("name"),
       supabase.from("menu_plans").select("id,menu_id,planned_date,portion_count,status,production_notes").eq("workspace_id", workspaceId).gte("planned_date", start).lte("planned_date", end).order("planned_date")
     ]);
+    if (sequence !== loadSequence.current) return;
     if (m.error || p.error) setError(m.error?.message ?? p.error?.message ?? "Gagal memuat kalender.");
     else { setMenus(m.data ?? []); setPlans(p.data ?? []); if (!menuId && m.data?.length) setMenuId(m.data[0].id); }
     setLoading(false);
