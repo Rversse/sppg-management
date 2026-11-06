@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { buildProductionReport, type ProductionBatch, type ProductionBatchEvent, type ProductionPlan } from "@/lib/domain/production-analytics";
 import { SignOutButton } from "@/components/sign-out-button";
 
-type Menu = { id: string; name: string };
+type Menu = { id: string; name: string; prep_duration_minutes: number | null; cook_duration_minutes: number | null };
 const input = "rounded-lg border border-[var(--line)] bg-white px-3 py-2 text-sm";
 function todayInTimezone(timezone: string) {
   const parts = new Intl.DateTimeFormat("en-CA", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
@@ -92,7 +92,7 @@ export function OperationalReportWorkspace({ workspaceId, workspaceName, role, t
     if (requestId !== requestSequence.current) return;
     setPlans(nextPlans); setMenus(nextMenus); setBatches(nextBatches); setEvents(nextEvents);
     setLoading(false);
-  }, [supabase, workspaceId, from, to]);
+  }, [supabase, workspaceId, from, to, timezone]);
 
   useEffect(() => { void load(); }, [load, reloadKey]);
   const report = useMemo(() => buildProductionReport(plans, batches, events, menus), [plans, batches, events, menus]);
