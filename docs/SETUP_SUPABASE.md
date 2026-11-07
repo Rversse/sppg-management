@@ -30,10 +30,11 @@ The dedicated project is `sppg-management` (reference: `sjmjgfndvjubicypaeri`, r
 26. `202611060006_preserve_attendance_original_recorder.sql`
 27. `202611070001_production_batch_stage_timing.sql`
 28. `202611070002_menu_versioning_and_duplication.sql`
+29. `202611070003_attendance_correction_review_trail.sql`
 
 Migration `202611040007` was intentionally skipped. Apply migrations in numeric order; do not reapply migrations already recorded in Supabase migration history.
 
-The six production-integrity, completed-record protection, workspace-timezone, and original-attendance-recorder migrations were reviewed and applied to the connected project on 2026-11-07. The connected migration history now contains all 28 expected migrations (the historical `202611040007` migration remains intentionally skipped). The stage-level production timing migration was subsequently applied and verified; it adds a workspace-scoped, RLS-protected stage table with immutable recipe-step title snapshots and audit events. The menu-versioning migration adds immutable version lineage, an atomic SECURITY INVOKER RPC that duplicates menu details and all child composition/seasoning/production-step rows, and serialization for concurrent version creation. No existing operational rows were modified by these schema changes.
+The six production-integrity, completed-record protection, workspace-timezone, and original-attendance-recorder migrations were reviewed and applied to the connected project on 2026-11-07. The connected migration history now contains all 29 expected migrations (the historical `202611040007` migration remains intentionally skipped). The stage-level production timing migration was subsequently applied and verified; it adds a workspace-scoped, RLS-protected stage table with immutable recipe-step title snapshots and audit events. The menu-versioning migration adds immutable version lineage, an atomic SECURITY INVOKER RPC that duplicates menu details and all child composition/seasoning/production-step rows, and serialization for concurrent version creation. The attendance-correction migration enforces a reason for material edits, captures before/after data through a database trigger, and creates a restricted HR review queue. No existing operational rows were modified by these schema changes.
 
 Do not reuse this setup against unrelated Supabase projects.
 
@@ -76,7 +77,8 @@ For production email delivery, configure a trusted custom SMTP provider and appr
 - Security Advisor reports two warnings: the workspace-creation SECURITY DEFINER RPC is intentionally callable by `authenticated` and is scoped to the current user; leaked-password protection is disabled and should be enabled in Supabase Auth settings before production use.
 - Performance Advisor reports 24 unused indexes on the still-small project. Do not remove them based on this low-volume signal alone; reassess after representative data and query traffic exist.
 - RLS was previously confirmed on workspaces, memberships, sections, volunteers, attendance, audit, menu tables, menu plans, production batches, batch-event history, and `production_batch_stages`.
-- `anon` was previously confirmed to have no SELECT privilege on application tables and cannot execute `duplicate_menu_version(uuid)`.
+- `anon` was previously confirmed to have no SELECT privilege on application tables and cannot execute `duplicate_menu_version(uuid)` or the private attendance-correction capture trigger function.
+- `attendance_correction_reviews` has RLS enabled; `anon` has no SELECT privilege. Only owner/admin/HR members can read and mark correction entries reviewed.
 - Performance Advisor reported unused indexes on a newly provisioned, nearly empty database; reassess after realistic data volume and query patterns exist.
 
 ## First-run checklist
