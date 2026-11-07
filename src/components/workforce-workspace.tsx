@@ -4,7 +4,7 @@ import Link from "next/link";
 
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { volunteersToCsv } from "@/lib/domain/workforce-csv";
+import { parseVolunteersCsv, volunteersToCsv, type VolunteerCsvImportRow } from "@/lib/domain/workforce-csv";
 
 type Section={id:string;name:string};
 type Volunteer={id:string;full_name:string;section_id:string|null;status:"active"|"inactive";daily_wage:number|null;joined_on:string|null;notes:string|null};
@@ -32,6 +32,8 @@ export function WorkforceWorkspace({workspaceId,workspaceName,role,timezone}:Pro
  const [error,setError]=useState("");
  const [notice,setNotice]=useState("");
  const [showForm,setShowForm]=useState(false);
+ const [importRows,setImportRows]=useState<VolunteerCsvImportRow[]>([]);
+ const [importErrors,setImportErrors]=useState<string[]>([]);
  const [editing,setEditing]=useState<Volunteer|null>(null);
  const [form,setForm]=useState({full_name:"",section_id:"",daily_wage:"",joined_on:"",notes:"",status:"active" as "active"|"inactive"});
  const canManage= ["owner","admin","hr"].includes(role);
@@ -93,6 +95,29 @@ export function WorkforceWorkspace({workspaceId,workspaceName,role,timezone}:Pro
   setNotice(rows.length+" data relawan berhasil diekspor ke CSV.");
   setError("");
  }
+ async function previewVolunteerImport(file:File){
+  setError("");setNotice("");setImportRows([]);setImportErrors([]);
+  if(!file.name.toLowerCase().endsWith(".csv")){setError("Pilih file berformat .csv.");return;}
+  if(file.size>2*1024*1024){setError("Ukuran file maksimal 2 MB.");return;}
+  try{
+   const parsed=parseVolunteersCsv(await file.text(),sections);
+   const existing=new Set(volunteers.map(v=>v.full_name.trim().toLocaleLowerCase("id-ID")));
+   const duplicateErrors=parsed.rows.filter(row=>existing.has(row.full_name.trim().toLocaleLowerCase("id-ID"))).map(row=>"Nama '"+row.full_name+"' sudah terdaftar di workspace.");
+   if(parsed.rows.length>500)duplicateErrors.push("Maksimal 500 relawan per proses impor.");
+   setImportRows(parsed.rows);setImportErrors([...parsed.errors,...duplicateErrors]);
+  }catch{setImportErrors(["File CSV tidak dapat dibaca. Pastikan encoding UTF-8 dan format CSV valid."]);}
+ }
+ async function commitVolunteerImport(){
+  if(!canManage||importRows.length===0||importErrors.length>0)return;
+  setBusy(true);setError("");setNotice("");
+  const {data:{user}}=await supabase.auth.getUser();
+  if(!user){setError("Sesi login berakhir. Masuk kembali.");setBusy(false);return;}
+  const payload=importRows.map(row=>({workspace_id:workspaceId,full_name:row.full_name,section_id:row.section_id,daily_wage:row.daily_wage,joined_on:row.joined_on,notes:row.notes,status:row.status,created_by:user.id}));
+  const result=await supabase.from("volunteers").insert(payload);
+  if(result.error){setError("Impor gagal dan tidak ada data yang dikonfirmasi tersimpan: "+result.error.message);}
+  else{setNotice(importRows.length+" relawan berhasil diimpor.");setImportRows([]);setImportErrors([]);await load();}
+  setBusy(false);
+ }
  async function createSection(){
   const name=sectionName.trim();if(name.length<1||name.length>80){setError("Nama bagian harus 1 sampai 80 karakter.");return;}
   setBusy(true);setError("");setNotice("");
@@ -143,6 +168,12 @@ export function WorkforceWorkspace({workspaceId,workspaceName,role,timezone}:Pro
    {tab==="volunteers"?<section className="mt-6">
     <div className="grid gap-3 sm:grid-cols-3"><Metric label="Total relawan" value={counts.total}/><Metric label="Aktif" value={counts.active}/><Metric label="Bagian kerja" value={counts.sections}/></div>
     <div className="mt-5 flex flex-col gap-3 rounded-xl border border-[var(--line)] bg-white p-4 sm:flex-row sm:items-center sm:justify-between"><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Cari nama relawan..." className={`${field} sm:max-w-sm`}/><div className="flex flex-wrap gap-2"><select value={sectionFilter} onChange={e=>setSectionFilter(e.target.value)} className={field+" sm:w-48"}><option value="all">Semua bagian</option>{sections.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select><button type="button" disabled={loading||volunteers.length===0} onClick={exportVolunteers} className="rounded-lg border border-[var(--line)] px-3 py-2.5 text-sm font-medium">Ekspor CSV</button>{canManage&&<button onClick={startCreate} className={button}>+ Tambah relawan</button>}{["owner","admin","hr","operations"].includes(role)&&<form onSubmit={e=>{e.preventDefault();void createSection();}} className="flex gap-2"><input aria-label="Nama bagian kerja baru" value={sectionName} onChange={e=>setSectionName(e.target.value)} placeholder="Bagian kerja baru" maxLength={80} className={field+" sm:w-44"}/><button disabled={busy||!sectionName.trim()} className="rounded-lg border border-[var(--line)] px-3 py-2 text-xs font-medium">Tambah bagian</button></form>}</div></div>
+    {canManage&&<section className="mt-4 rounded-xl border border-[var(--line)] bg-white p-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-semibold">Impor relawan dari CSV</h2><p className="mt-1 text-xs text-[var(--muted)]">Gunakan file hasil Ekspor CSV. Impor hanya menambahkan data baru, tidak menimpa relawan yang sudah ada.</p></div><label className="cursor-pointer rounded-lg border border-[var(--line)] px-3 py-2.5 text-sm font-medium">Pilih file CSV<input type="file" accept=".csv,text/csv" className="sr-only" disabled={busy||loading} onChange={e=>{const file=e.target.files?.[0];if(file)void previewVolunteerImport(file);e.currentTarget.value="";}}/></label></div>
+     {importRows.length>0&&<div className="mt-4 rounded-lg bg-[#f7f8f6] p-3"><p className="text-sm font-semibold">Pratinjau: {importRows.length} baris valid</p><div className="mt-3 max-h-64 overflow-auto"><table className="w-full min-w-[560px] text-left text-xs"><thead><tr>{["Nama","Bagian","Upah harian","Status","Tanggal bergabung"].map(x=><th key={x} className="px-2 py-2">{x}</th>)}</tr></thead><tbody>{importRows.slice(0,100).map((row,i)=><tr key={i} className="border-t border-[var(--line)]"><td className="px-2 py-2">{row.full_name}</td><td className="px-2 py-2">{row.section_name||"—"}</td><td className="px-2 py-2">{row.daily_wage===null?"—":new Intl.NumberFormat("id-ID",{style:"currency",currency:"IDR",maximumFractionDigits:0}).format(row.daily_wage*1000)}</td><td className="px-2 py-2">{row.status==="active"?"Aktif":"Nonaktif"}</td><td className="px-2 py-2">{row.joined_on??"—"}</td></tr>)}</tbody></table></div>{importRows.length>100&&<p className="mt-2 text-xs text-[var(--muted)]">Pratinjau menampilkan 100 baris pertama.</p>}
+      {importErrors.length>0&&<div className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3"><p className="text-sm font-semibold text-red-700">{importErrors.length} masalah ditemukan. Perbaiki CSV sebelum impor.</p><ul className="mt-2 max-h-32 list-inside list-disc overflow-auto text-xs text-red-700">{importErrors.slice(0,30).map((item,i)=><li key={i}>{item}</li>)}</ul></div>}
+      <div className="mt-3 flex flex-wrap gap-2"><button type="button" disabled={busy||importErrors.length>0} onClick={()=>void commitVolunteerImport()} className={button}>{busy?"Mengimpor...":"Konfirmasi impor"}</button><button type="button" disabled={busy} onClick={()=>{setImportRows([]);setImportErrors([]);}} className="rounded-lg border border-[var(--line)] px-4 py-2.5 text-sm">Batal</button></div>
+     </div>}
+    </section>}
     {showForm&&<form onSubmit={saveVolunteer} className="mt-4 rounded-xl border border-[var(--line)] bg-white p-5"><div className="flex items-center justify-between"><h2 className="font-semibold">{editing?"Ubah relawan":"Tambah relawan"}</h2><button type="button" onClick={()=>setShowForm(false)} className="text-sm text-[var(--muted)]">Tutup</button></div><div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
      <Field label="Nama lengkap *"><input required minLength={2} maxLength={160} value={form.full_name} onChange={e=>setForm({...form,full_name:e.target.value})} className={field}/></Field>
      
