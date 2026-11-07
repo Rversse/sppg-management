@@ -28,10 +28,11 @@ The dedicated project is `sppg-management` (reference: `sjmjgfndvjubicypaeri`, r
 24. `202611060004_prevent_batches_on_completed_plans.sql`
 25. `202611060005_workspace_timezone_schedule_versions.sql`
 26. `202611060006_preserve_attendance_original_recorder.sql`
+27. `202611070001_production_batch_stage_timing.sql`
 
 Migration `202611040007` was intentionally skipped. Apply migrations in numeric order; do not reapply migrations already recorded in Supabase migration history.
 
-The six production-integrity, completed-record protection, workspace-timezone, and original-attendance-recorder migrations were reviewed and applied to the connected project on 2026-11-07. The connected migration history now contains all 26 expected migrations (the historical `202611040007` migration remains intentionally skipped). No operational rows were modified by these schema changes.
+The six production-integrity, completed-record protection, workspace-timezone, and original-attendance-recorder migrations were reviewed and applied to the connected project on 2026-11-07. The connected migration history now contains all 26 expected migrations (the historical `202611040007` migration remains intentionally skipped). The stage-level production timing migration was subsequently applied and verified; it adds a workspace-scoped, RLS-protected stage table with immutable recipe-step title snapshots and audit events. No existing operational rows were modified by these schema changes.
 
 Do not reuse this setup against unrelated Supabase projects.
 
@@ -73,7 +74,7 @@ For production email delivery, configure a trusted custom SMTP provider and appr
 - A live catalog query confirmed RLS is enabled on all 15 core application tables checked, including workspaces, memberships, workforce, attendance, audit, menu, schedule snapshots, and production history.
 - Security Advisor reports two warnings: the workspace-creation SECURITY DEFINER RPC is intentionally callable by `authenticated` and is scoped to the current user; leaked-password protection is disabled and should be enabled in Supabase Auth settings before production use.
 - Performance Advisor reports 24 unused indexes on the still-small project. Do not remove them based on this low-volume signal alone; reassess after representative data and query traffic exist.
-- RLS was previously confirmed on workspaces, memberships, sections, volunteers, attendance, audit, menu tables, menu plans, production batches, and batch-event history.
+- RLS was previously confirmed on workspaces, memberships, sections, volunteers, attendance, audit, menu tables, menu plans, production batches, batch-event history, and is enabled on `production_batch_stages`.
 - `anon` was previously confirmed to have no SELECT privilege on application tables.
 - Performance Advisor reported unused indexes on a newly provisioned, nearly empty database; reassess after realistic data volume and query patterns exist.
 
