@@ -4,7 +4,7 @@
 
 Build SPPG Management as a standalone operational platform for an SPPG team. It is separate from SIM-SPPG. The product should connect workforce, attendance, menu composition, production planning, daily operations, and eventually a truthful Virtual Office for human-supervised agents.
 
-The application is not a payroll system. Do not add payroll runs, payslips, salary disbursement, or payroll approval workflows. Keep Gaji Harian only as a workforce attribute and use it for the scheduled daily workforce indicator in group planning and rosters. The Menu Bank remains composition- and production-focused, not a food-cost calculator.
+The application is not a payroll system. Do not add payroll runs, payslips, salary disbursement, or payroll approval workflows. Keep Upah Harian only as a workforce attribute and use it for the scheduled daily workforce indicator in group planning and rosters. The Menu Bank remains composition- and production-focused, not a food-cost calculator.
 
 ## Phase 0 — Foundation
 - [x] Create public repository and product direction
@@ -73,7 +73,7 @@ The application is not a payroll system. Do not add payroll runs, payslips, sala
 4. Agent presence must come from real runtime heartbeats/events, never fabricated UI animation.
 5. Keep operating costs low. Prefer local Ollama for the agent runtime; cloud AI is optional, not required for core operations.
 6. Enforce workspace isolation, least privilege, and server/database authorization.
-7. Do not reintroduce payroll features. Gaji Harian is only used as a workforce planning indicator.
+7. Do not reintroduce payroll features. Upah Harian is only used as a workforce planning indicator.
 8. Preserve the product's operational focus: menu composition and production notes, not food costing.
 
 ## Current implementation boundary
