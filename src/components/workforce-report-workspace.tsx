@@ -13,7 +13,7 @@ type ReportRow = { date: string; group: string; person: Person; status: Attendan
 const statusLabels = { present: "Hadir", permission: "Izin", sick: "Sakit", absent: "Alpa", not_recorded: "Belum dicatat" };
 const money = (value: number) => new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(value);
 const dateInZone = (timezone: string) => new Intl.DateTimeFormat("en-CA", { timeZone: timezone || "Asia/Jakarta" }).format(new Date());
-const csvCell = (value: string | number) => { const raw = String(value); return '"' + (/^[\\s]*[=+@-]/.test(raw) ? "'" + raw : raw).replaceAll('"', '""') + '"'; };
+const csvCell = (value: string | number) => { const raw = String(value); return '"' + (/^[\s]*[=+@-]/.test(raw) ? "'" + raw : raw).replaceAll('"', '""') + '"'; };
 
 export function WorkforceReportWorkspace({ workspaceId, workspaceName, role, timezone }: { workspaceId: string; workspaceName: string; role: string; timezone: string }) {
   const db = useMemo(() => createClient(), []);
@@ -93,7 +93,7 @@ export function WorkforceReportWorkspace({ workspaceId, workspaceName, role, tim
   function exportCsv() {
     const headers = ["Tanggal", "Grup", "Nama relawan", "Bagian kerja", "Status absensi", "Upah harian terjadwal (Rp)", "Masuk roster"];
     const body = rows.map((row) => [row.date, row.group, row.person.full_name, row.person.section_id ? sections[row.person.section_id] ?? "" : "", statusLabels[row.status], row.person.daily_wage === null ? "" : row.person.daily_wage * 1000, row.scheduled ? "Ya" : "Tidak"]);
-    const csv = "\\uFEFF" + [headers, ...body].map((line) => line.map(csvCell).join(",")).join("\\r\\n");
+    const csv = "\uFEFF" + [headers, ...body].map((line) => line.map(csvCell).join(",")).join("\r\n");
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" }));
     const anchor = document.createElement("a"); anchor.href = url; anchor.download = "laporan-tenaga-kerja-" + from + "-sampai-" + to + ".csv"; anchor.click(); window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
