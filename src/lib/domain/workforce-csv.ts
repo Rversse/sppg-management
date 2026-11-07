@@ -9,7 +9,7 @@ export interface VolunteerCsvRow {
 
 function safeCell(value: string | number | null): string {
   const raw = value === null ? "" : String(value);
-  const safe = /^[\\s]*[=+@\\-]/.test(raw) ? "'" + raw : raw;
+  const safe = /^[\s]*[=+@\-]/.test(raw) ? "'" + raw : raw;
   return '"' + safe.replace(/"/g, '""') + '"';
 }
 
@@ -23,7 +23,7 @@ export function volunteersToCsv(rows: VolunteerCsvRow[]): string {
     row.joined_on,
     row.notes
   ].map(safeCell).join(","));
-  return "\\uFEFF" + [headers.map(safeCell).join(","), ...body].join("\\r\\n");
+  return "\uFEFF" + [headers.map(safeCell).join(","), ...body].join("\r\n");
 }
 
 export interface VolunteerCsvImportRow {
@@ -58,8 +58,8 @@ function parseCsvRecords(csv: string): string[][] {
     } else if (ch === "," && !quoted) {
       cells.push(value.trim());
       value = "";
-    } else if ((ch === "\\n" || ch === "\\r") && !quoted) {
-      if (ch === "\\r" && csv[i + 1] === "\\n") i++;
+    } else if ((ch === "\n" || ch === "\r") && !quoted) {
+      if (ch === "\r" && csv[i + 1] === "\n") i++;
       cells.push(value.trim());
       if (cells.some((cell) => cell.length > 0)) records.push(cells);
       cells = [];
@@ -76,11 +76,11 @@ function parseCsvRecords(csv: string): string[][] {
 }
 
 function normalizeHeader(value: string): string {
-  return value.replace(/^\\uFEFF/, "").trim().toLowerCase().replace(/[ _-]+/g, " ");
+  return value.replace(/^\uFEFF/, "").trim().toLowerCase().replace(/[ _-]+/g, " ");
 }
 
 function validDate(value: string): boolean {
-  if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(value)) return false;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
   const date = new Date(value + "T00:00:00Z");
   return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
 }
@@ -91,7 +91,7 @@ export function parseVolunteersCsv(
 ): VolunteerCsvImportResult {
   let records: string[][];
   try {
-    records = parseCsvRecords(csv.replace(/^\\uFEFF/, ""));
+    records = parseCsvRecords(csv.replace(/^\uFEFF/, ""));
   } catch (error) {
     return { rows: [], errors: [error instanceof Error ? error.message : "CSV tidak valid."] };
   }
@@ -152,7 +152,7 @@ export function parseVolunteersCsv(
       continue;
     }
 
-    const wageText = get("daily_wage").replace(/[.\\s]/g, "").replace(/^Rp/i, "");
+    const wageText = get("daily_wage").replace(/[.\s]/g, "").replace(/^Rp/i, "");
     const wage = wageText === "" ? null : Number(wageText);
     if (wage !== null && (!Number.isSafeInteger(wage) || wage < 0)) {
       errors.push("Baris " + (index + 1) + ": upah harus angka rupiah bulat nol atau lebih.");
