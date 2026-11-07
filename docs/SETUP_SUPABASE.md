@@ -31,10 +31,13 @@ The dedicated project is `sppg-management` (reference: `sjmjgfndvjubicypaeri`, r
 27. `202611070001_production_batch_stage_timing.sql`
 28. `202611070002_menu_versioning_and_duplication.sql`
 29. `202611070003_attendance_correction_review_trail.sql`
+30. `202611070004_workspace_member_role_management.sql`
+31. `202611070005_serialize_workspace_role_changes.sql`
+32. `202611070006_workspace_invitations.sql`
 
 Migration `202611040007` was intentionally skipped. Apply migrations in numeric order; do not reapply migrations already recorded in Supabase migration history.
 
-The six production-integrity, completed-record protection, workspace-timezone, and original-attendance-recorder migrations were reviewed and applied to the connected project on 2026-11-07. The connected migration history now contains all 29 expected migrations (the historical `202611040007` migration remains intentionally skipped). The stage-level production timing migration was subsequently applied and verified; it adds a workspace-scoped, RLS-protected stage table with immutable recipe-step title snapshots and audit events. The menu-versioning migration adds immutable version lineage, an atomic SECURITY INVOKER RPC that duplicates menu details and all child composition/seasoning/production-step rows, and serialization for concurrent version creation. The attendance-correction migration enforces a reason for material edits, captures before/after data through a database trigger, and creates a restricted HR review queue. No existing operational rows were modified by these schema changes.
+The six production-integrity, completed-record protection, workspace-timezone, and original-attendance-recorder migrations were reviewed and applied to the connected project on 2026-11-07. The connected migration history now contains all 30 expected migrations (the historical `202611040007` migration remains intentionally skipped). The stage-level production timing migration was subsequently applied and verified; it adds a workspace-scoped, RLS-protected stage table with immutable recipe-step title snapshots and audit events. The menu-versioning migration adds immutable version lineage, an atomic SECURITY INVOKER RPC that duplicates menu details and all child composition/seasoning/production-step rows, and serialization for concurrent version creation. The attendance-correction migration enforces a reason for material edits, captures before/after data through a database trigger, and creates a restricted HR review queue. Workspace role management adds owner/admin-only member directory and guarded role changes; workspace invitations store only token hashes, bind acceptance to the invited email, expire after seven days, and can be revoked. Invitation links are copied and shared manually; no email-sending provider is configured. No existing operational rows were modified by these schema changes.
 
 Do not reuse this setup against unrelated Supabase projects.
 
@@ -72,7 +75,7 @@ For production email delivery, configure a trusted custom SMTP provider and appr
 
 ## Verification performed
 
-- The connected project migration history was rechecked after applying the six pending migrations and three subsequent feature migrations; all 29 expected migrations are recorded.
+- The connected project migration history was rechecked after applying the six pending migrations and three subsequent feature migrations; all 32 expected migrations are recorded.
 - A live catalog query confirmed RLS is enabled on all 15 core application tables checked, including workspaces, memberships, workforce, attendance, audit, menu, schedule snapshots, and production history.
 - Security Advisor reports two warnings: the workspace-creation SECURITY DEFINER RPC is intentionally callable by `authenticated` and is scoped to the current user; leaked-password protection is disabled and should be enabled in Supabase Auth settings before production use.
 - Performance Advisor reports 24 unused indexes on the still-small project. Do not remove them based on this low-volume signal alone; reassess after representative data and query traffic exist.
