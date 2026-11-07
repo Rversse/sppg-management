@@ -44,11 +44,9 @@ begin
     raise exception 'Tidak memiliki izin untuk membuat versi menu.' using errcode = '42501';
   end if;
 
-  perform 1
-    from public.menu_items
-    where workspace_id = source_menu.workspace_id
-      and version_group_id = source_menu.version_group_id
-    for update;
+  perform pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended(source_menu.workspace_id::text || ':' || source_menu.version_group_id::text, 0)
+  );
 
   select coalesce(max(version_number), 0) + 1
     into next_version
@@ -99,3 +97,32 @@ $$;
 
 revoke all on function public.duplicate_menu_version(uuid) from public, anon;
 grant execute on function public.duplicate_menu_version(uuid) to authenticated;
+
+-- Superseded versions are historical snapshots and cannot be edited or removed.
+create or replace function private.protect_superseded_menu_version()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if old.is_current_version = false then
+    raise exception 'Versi menu lama bersifat arsip dan tidak dapat diubah atau dihapus.'
+      using errcode = '23514';
+  end if;
+
+  if tg_op = 'UPDATE'
+     and (new.workspace_id, new.version_group_id, new.version_number, new.based_on_menu_id)
+       is distinct from
+       (old.workspace_id, old.version_group_id, old.version_number, old.based_on_menu_id) then
+    raise exception 'Identitas versi menu tidak dapat diubah.'
+      using errcode = '23514';
+  end if;
+
+  if tg_op = 'DELETE' then return old; end if;
+  return new;
+end;
+$$;
+revoke all on function private.protect_superseded_menu_version() from public, anon, authenticated;
+create trigger menu_items_version_history_guard
+  before update or delete on public.menu_items
+  for each row execute function private.protect_superseded_menu_version();
