@@ -66,7 +66,7 @@ $$;
 
 revoke all on function private.protect_production_batch_stage() from public, anon, authenticated;
 create trigger production_batch_stages_guard
-  before update or delete on public.production_batch_stages
+  before insert or update or delete on public.production_batch_stages
   for each row execute function private.protect_production_batch_stage();
 
 create or replace function private.capture_production_batch_stage_event()
