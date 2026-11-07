@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createHash, randomBytes } from "node:crypto";
+import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireWorkspace } from "@/lib/workspace";
@@ -22,7 +23,8 @@ async function createInvitation(formData: FormData) {
     p_expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
   });
   if (error) redirect("/anggota?error=" + encodeURIComponent(error.message));
-  const origin = process.env.NEXT_PUBLIC_SITE_URL || "https://localhost";
+  const requestHeaders = await headers();
+  const origin = process.env.NEXT_PUBLIC_SITE_URL || ((requestHeaders.get("x-forwarded-proto") || "https") + "://" + (requestHeaders.get("x-forwarded-host") || requestHeaders.get("host")));
   redirect("/anggota?invitation=" + encodeURIComponent(origin + "/undangan/" + token));
 }
 
