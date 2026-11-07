@@ -44,6 +44,12 @@ begin
     raise exception 'Tidak memiliki izin untuk membuat versi menu.' using errcode = '42501';
   end if;
 
+  perform 1
+    from public.menu_items
+    where workspace_id = source_menu.workspace_id
+      and version_group_id = source_menu.version_group_id
+    for update;
+
   select coalesce(max(version_number), 0) + 1
     into next_version
     from public.menu_items
