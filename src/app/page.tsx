@@ -35,6 +35,7 @@ export default async function Home() {
     { title: "Laporan tenaga kerja", description: "Rekap jadwal, absensi aktual, dan total upah harian terjadwal.", href: "/laporan-tenaga-kerja", icon: Activity },
     { title: "Riwayat absensi", description: "Telusuri catatan kehadiran lintas tanggal dan ekspor CSV.", href: "/riwayat-absensi", icon: CalendarDays },
     ...( ["owner", "admin", "hr"].includes(role) ? [{ title: "Audit trail", description: "Telusuri siapa mengubah data relawan, absensi, dan bagian kerja.", href: "/audit-trail", icon: ClipboardCheck }] : [] ),
+    ...( ["owner", "admin"].includes(role) ? [{ title: "Anggota workspace", description: "Lihat anggota dan atur hak akses sesuai tanggung jawab.", href: "/anggota", icon: Users }] : [] ),
   ];
 
   return (
