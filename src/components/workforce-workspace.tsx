@@ -138,11 +138,11 @@ export function WorkforceWorkspace({workspaceId,workspaceName,role,timezone}:Pro
  }
 
  function setAttendance(id:string,status:Attendance["status"]){
-  setRecords(prev=>({...prev,[id]:{volunteer_id:id,status,clock_in:prev[id]?.clock_in??null,clock_out:prev[id]?.clock_out??null,notes:prev[id]?.notes??null}}));
+  setRecords(prev=>({...prev,[id]:{volunteer_id:id,status,clock_in:prev[id]?.clock_in??null,clock_out:prev[id]?.clock_out??null,notes:prev[id]?.notes??null,correction_reason:prev[id]?.correction_reason??null}}));
  }
  function applyBulkAttendance(ids:string[]){
   if(ids.length===0){setError("Pilih relawan atau bagian kerja terlebih dahulu.");return;}
-  setRecords(prev=>{const next={...prev};for(const id of ids)next[id]={volunteer_id:id,status:bulkStatus,clock_in:prev[id]?.clock_in??null,clock_out:prev[id]?.clock_out??null,notes:prev[id]?.notes??null};return next;});
+  setRecords(prev=>{const next={...prev};for(const id of ids)next[id]={volunteer_id:id,status:bulkStatus,clock_in:prev[id]?.clock_in??null,clock_out:prev[id]?.clock_out??null,notes:prev[id]?.notes??null,correction_reason:prev[id]?.correction_reason??null};return next;});
   setNotice("Status "+statusLabels[bulkStatus]+" diterapkan ke "+ids.length+" relawan. Simpan absensi untuk menyimpan perubahan.");
   setError("");
  }
