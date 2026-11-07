@@ -44,7 +44,7 @@ The initial implementation is a modular monolith:
 - Attendance history and CSV export
 - Group schedules and daily roster
 - Menu bank and production notes
-- Planned: menu calendar, production board, reporting, Virtual Office / agent monitor
+- Planned: workspace roles, permissions, and Virtual Office / agent monitor
 - Planned: workspace roles, permissions, and expanded audit viewer
 
 ## Local development
@@ -60,7 +60,7 @@ Copy `.env.example` to `.env.local` and set `NEXT_PUBLIC_SUPABASE_URL` plus `NEX
 
 ## Project status
 
-Active operational-preview development. Passwordless sign-in, first-workspace onboarding, volunteer/section management, daily attendance, menu composition/production editing, group schedules, daily roster, and attendance history/CSV export are implemented on the preview branch. Menu scheduling, production board, bulk/import workflows, workspace role management, and Virtual Office remain to be built. See `docs/ROADMAP.md` and `docs/SETUP_SUPABASE.md`.
+Active operational-preview development. Workforce, menu, calendar, production, audit, CSV import/export, bulk attendance, and workforce/production reporting are implemented on the preview branch. Workspace role management, attendance correction review, stage-level production timing, backup/restore, final accessibility/security review, and Virtual Office remain release work. See docs/ROADMAP.md and docs/SETUP_SUPABASE.md. See `docs/ROADMAP.md` and `docs/SETUP_SUPABASE.md`.
 
 ## License
 
