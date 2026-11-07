@@ -22,11 +22,6 @@ The dedicated project is `sppg-management` (reference: `sjmjgfndvjubicypaeri`, r
 18. `202611040019_production_batch_history_hardening.sql`
 19. `202611040020_enforce_production_batch_portion_limits.sql`
 20. `202611040021_production_rls_policy_and_fk_index_cleanup.sql`
-
-Migration `202611040007` was intentionally skipped. Apply migrations in numeric order; do not reapply migrations already recorded in Supabase migration history.
-
-The following production-integrity and timezone migrations were added after the baseline list above. They are present in this branch but have **not** been applied to the connected Supabase project as part of this work:
-
 21. `202611060001_enforce_production_completion_in_database.sql`
 22. `202611060002_protect_completed_production_plans.sql`
 23. `202611060003_protect_completed_menu_plan_records.sql`
@@ -34,7 +29,9 @@ The following production-integrity and timezone migrations were added after the 
 25. `202611060005_workspace_timezone_schedule_versions.sql`
 26. `202611060006_preserve_attendance_original_recorder.sql`
 
-Review these migrations and confirm the target project's migration history before applying them. Do not mark them as applied or run them against the project until the release/migration review is complete.
+Migration `202611040007` was intentionally skipped. Apply migrations in numeric order; do not reapply migrations already recorded in Supabase migration history.
+
+The six production-integrity, completed-record protection, workspace-timezone, and original-attendance-recorder migrations were reviewed and applied to the connected project on 2026-11-07. The connected migration history now contains all 26 expected migrations (the historical `202611040007` migration remains intentionally skipped). No operational rows were modified by these schema changes.
 
 Do not reuse this setup against unrelated Supabase projects.
 
@@ -72,8 +69,10 @@ For production email delivery, configure a trusted custom SMTP provider and appr
 
 ## Verification performed
 
-- The baseline migration history was checked previously; re-verify the connected project migration table before applying any pending migration listed above.
-- A previous security review found the auto-RLS trigger unavailable to `anon` and `authenticated`; re-run the Security Advisor after the pending hardening migrations are applied.
+- The connected project migration history was rechecked after applying the six pending migrations; all 26 expected migrations are recorded.
+- A live catalog query confirmed RLS is enabled on all 15 core application tables checked, including workspaces, memberships, workforce, attendance, audit, menu, schedule snapshots, and production history.
+- Security Advisor reports two warnings: the workspace-creation SECURITY DEFINER RPC is intentionally callable by `authenticated` and is scoped to the current user; leaked-password protection is disabled and should be enabled in Supabase Auth settings before production use.
+- Performance Advisor reports 24 unused indexes on the still-small project. Do not remove them based on this low-volume signal alone; reassess after representative data and query traffic exist.
 - RLS was previously confirmed on workspaces, memberships, sections, volunteers, attendance, audit, menu tables, menu plans, production batches, and batch-event history.
 - `anon` was previously confirmed to have no SELECT privilege on application tables.
 - Performance Advisor reported unused indexes on a newly provisioned, nearly empty database; reassess after realistic data volume and query patterns exist.
