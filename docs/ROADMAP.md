@@ -12,7 +12,7 @@ The application is not a payroll system. Do not add payroll runs, payslips, sala
 - [x] Define architecture, guardrails, and delivery sequence
 - [x] Connect dedicated Supabase project and passwordless authentication
 - [x] Secure first-workspace owner bootstrap
-- [ ] Generate and commit npm lockfile; confirm green CI
+- [x] Generate and commit npm lockfile; confirm green CI
 
 ## Phase 1 — Workforce operations
 - [x] Volunteer and work-section management
@@ -26,9 +26,9 @@ The application is not a payroll system. Do not add payroll runs, payslips, sala
 - [x] Distinguish scheduled roster from actual attendance, including attendance outside roster
 - [x] Append-only group and schedule audit history
 - [x] Attendance history with date range, section/status filters, and CSV export
-- [ ] Attendance correction reason, review trail, and export refinements
-- [ ] Volunteer import/export (CSV/Excel)
-- [ ] Bulk attendance actions (select all and per-section actions)
+- [ ] Attendance correction reason and review trail
+- [x] Volunteer CSV import/export with validation, duplicate detection, and preview
+- [x] Bulk attendance actions (select all and per-section actions)
 - [ ] Workspace member invitations, roles, and permission management
 
 ## Phase 2 — Menu and production operations
@@ -57,9 +57,9 @@ The application is not a payroll system. Do not add payroll runs, payslips, sala
 - [ ] Never simulate agent activity; offline and error states must be explicit
 
 ## Phase 4 — Reporting and operational hardening
-- [ ] Dashboard trends and date-based operational reports
-- [ ] CSV/Excel export coverage across core modules
-- [ ] Audit log viewer and permission review
+- [x] Date-based operational reports for production and workforce
+- [x] CSV export for attendance history, volunteer data, production operations, and workforce reports
+- [x] Audit log viewer for workforce and schedule history; [ ] workspace role management
 - [ ] Backup/restore and operational documentation
 - [ ] Responsive and accessibility audit
 - [ ] RLS and security review
@@ -80,4 +80,4 @@ The application is not a payroll system. Do not add payroll runs, payslips, sala
 
 The dedicated Supabase project has workforce, attendance, audit, menu-bank, workspace-bootstrap, volunteer-group, schedule-snapshot, and RLS-hardening migrations applied. The preview has passwordless auth, first-workspace onboarding, volunteer CRUD, daily attendance, menu composition/seasoning/production editors, recurring group schedules, effective-dated roster snapshots, and a daily roster. Attendance history and CSV export, plus date-based menu planning with a weekly calendar and production status lifecycle, plus a production board that reads menu plans and displays recipe components, seasonings, production instructions, batch splitting, volunteer assignment, and blocked-reason tracking with audit history, have now been added to the preview branch.
 
-The current release is still an operational foundation, not the finished product. Menu scheduling, production board, bulk/import workflows, workspace role management, and Virtual Office remain to be built. Do not merge to main or describe the platform as production-ready solely because the initial manual flows work.
+The preview now includes workforce management, attendance, schedules, daily roster, volunteer CSV import/export, bulk attendance, audit trail, menu bank, menu calendar, production board with batch controls, production analytics, and date-based workforce reports. Remaining release work includes attendance correction review, workspace member invitations and role management, stage-level production timing, menu duplication/versioning, backup/restore, accessibility and security review, and full Virtual Office runtime. Do not merge to main or describe the platform as production-ready until those release gates are completed. Do not merge to main or describe the platform as production-ready solely because the initial manual flows work.
