@@ -26,7 +26,7 @@ The application is not a payroll system. Do not add payroll runs, payslips, sala
 - [x] Distinguish scheduled roster from actual attendance, including attendance outside roster
 - [x] Append-only group and schedule audit history
 - [x] Attendance history with date range, section/status filters, and CSV export
-- [ ] Attendance correction reason and review trail
+- [x] Attendance correction reason and review trail (database-enforced reason, immutable before/after capture, HR review queue)
 - [x] Volunteer CSV import/export with validation, duplicate detection, and preview
 - [x] Bulk attendance actions (select all and per-section actions)
 - [ ] Workspace member invitations, roles, and permission management
