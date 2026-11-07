@@ -11,19 +11,3 @@ export interface AttendanceRecord {
   clockOut?: string | null;
   notes?: string | null;
 }
-
-export interface AttendancePayPolicy {
-  /** Multiplier applied to the configured daily rate for this status. */
-  payMultiplier: Record<AttendanceStatus, number>;
-}
-
-export function getAttendancePayMultiplier(
-  status: AttendanceStatus,
-  policy: AttendancePayPolicy
-): number {
-  const multiplier = policy.payMultiplier[status];
-  if (!Number.isFinite(multiplier) || multiplier < 0) {
-    throw new Error(`Invalid pay multiplier for attendance status: ${status}`);
-  }
-  return multiplier;
-}

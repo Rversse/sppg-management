@@ -1,0 +1,217 @@
+"use client";
+
+import Link from "next/link";
+
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+import { parseVolunteersCsv, volunteersToCsv, type VolunteerCsvImportRow } from "@/lib/domain/workforce-csv";
+
+type Section={id:string;name:string};
+type Volunteer={id:string;full_name:string;section_id:string|null;status:"active"|"inactive";daily_wage:number|null;joined_on:string|null;notes:string|null};
+type Attendance={volunteer_id:string;status:"present"|"permission"|"sick"|"absent";clock_in:string|null;clock_out:string|null;notes:string|null;correction_reason:string|null};
+type CorrectionReview={id:string;volunteer_id:string;work_date:string;correction_reason:string;before_data:{status:string};after_data:{status:string};requested_at:string;review_status:"pending"|"reviewed"};
+type Props={workspaceId:string;workspaceName:string;role:string;timezone:string};
+
+const statusLabels={present:"Hadir",permission:"Izin",sick:"Sakit",absent:"Alpa"};
+const field="w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2.5 text-sm outline-none focus:border-[var(--green)]";
+const button="inline-flex items-center justify-center rounded-lg bg-[var(--green)] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50";
+
+export function WorkforceWorkspace({workspaceId,workspaceName,role,timezone}:Props){
+ const supabase=useMemo(()=>createClient(),[]);const loadSequence=useRef(0);
+ const [tab,setTab]=useState<"volunteers"|"attendance">("volunteers");
+ const [sections,setSections]=useState<Section[]>([]);
+ const [volunteers,setVolunteers]=useState<Volunteer[]>([]);
+ const [records,setRecords]=useState<Record<string,Attendance>>({});
+ const originalRecords=useRef<Record<string,Attendance>>({});
+ const [correctionReason,setCorrectionReason]=useState("");
+ const [correctionReviews,setCorrectionReviews]=useState<CorrectionReview[]>([]);
+ const [attendanceSectionFilter,setAttendanceSectionFilter]=useState("all");
+ const [selectedAttendanceIds,setSelectedAttendanceIds]=useState<Set<string>>(()=>new Set());
+ const [bulkStatus,setBulkStatus]=useState<Attendance["status"]>("present");
+ const [date,setDate]=useState(()=>new Date().toLocaleDateString("en-CA",{timeZone:timezone||"Asia/Jakarta"}));
+ const [search,setSearch]=useState("");const [sectionName,setSectionName]=useState("");
+ const [sectionFilter,setSectionFilter]=useState("all");
+ const [loading,setLoading]=useState(true);
+ const [busy,setBusy]=useState(false);
+ const [error,setError]=useState("");
+ const [notice,setNotice]=useState("");
+ const [showForm,setShowForm]=useState(false);
+ const [importRows,setImportRows]=useState<VolunteerCsvImportRow[]>([]);
+ const [importErrors,setImportErrors]=useState<string[]>([]);
+ const [editing,setEditing]=useState<Volunteer|null>(null);
+ const [form,setForm]=useState({full_name:"",section_id:"",daily_wage:"",joined_on:"",notes:"",status:"active" as "active"|"inactive"});
+ const canManage= ["owner","admin","hr"].includes(role);
+ const canDelete= ["owner","admin"].includes(role);
+
+ const load=useCallback(async()=>{
+  const requestId=++loadSequence.current;setLoading(true);setError("");setRecords({});setSelectedAttendanceIds(new Set());
+  const [sectionResult,volunteerResult,attendanceResult]=await Promise.all([
+   supabase.from("sections").select("id,name").eq("workspace_id",workspaceId).order("sort_order").order("name"),
+   supabase.from("volunteers").select("id,full_name,section_id,status,daily_wage,joined_on,notes").eq("workspace_id",workspaceId).order("full_name"),
+   supabase.from("attendance_records").select("volunteer_id,status,clock_in,clock_out,notes,correction_reason").eq("workspace_id",workspaceId).eq("work_date",date)
+  ]);
+  const reviewResult=canManage?await supabase.from("attendance_correction_reviews").select("id,volunteer_id,work_date,correction_reason,before_data,after_data,requested_at,review_status").eq("workspace_id",workspaceId).order("requested_at",{ascending:false}).limit(100):{data:[],error:null};
+  if(requestId!==loadSequence.current)return;
+  const firstError=sectionResult.error||volunteerResult.error||attendanceResult.error||reviewResult.error;
+  if(firstError){setError(firstError.message);setLoading(false);return;}
+  setSections(sectionResult.data??[]);setVolunteers(volunteerResult.data??[]);
+  const mapped:Record<string,Attendance>={};
+  for(const item of attendanceResult.data??[]) mapped[item.volunteer_id]=item as Attendance;
+  originalRecords.current=mapped;setRecords(mapped);setCorrectionReason("");setCorrectionReviews((reviewResult.data??[]) as CorrectionReview[]);setLoading(false);
+ },[supabase,workspaceId,date,canManage]);
+
+ useEffect(()=>{void load();},[load]);
+ const visible=useMemo(()=>volunteers.filter(v=>(v.full_name.toLowerCase().includes(search.toLowerCase()))&&(sectionFilter==="all"||v.section_id===sectionFilter)),[volunteers,search,sectionFilter]);
+ const counts=useMemo(()=>({total:volunteers.length,active:volunteers.filter(v=>v.status==="active").length,sections:sections.length}),[volunteers,sections]);
+ const attendanceCounts=useMemo(()=>Object.values(records).reduce((acc,r)=>{acc[r.status]=(acc[r.status]??0)+1;return acc;},{present:0,permission:0,sick:0,absent:0} as Record<Attendance["status"],number>),[records]);
+ const attendanceVisible=useMemo(()=>volunteers.filter(v=>(v.status==="active"||Boolean(records[v.id]))&&(attendanceSectionFilter==="all"||v.section_id===attendanceSectionFilter)),[volunteers,records,attendanceSectionFilter]);
+
+ function startCreate(){setEditing(null);setForm({full_name:"",section_id:"",daily_wage:"",joined_on:"",notes:"",status:"active"});setShowForm(true);setError("");setNotice("");}
+ function startEdit(v:Volunteer){setEditing(v);setForm({full_name:v.full_name,section_id:v.section_id??"",daily_wage:v.daily_wage===null?"":String(v.daily_wage*1000),joined_on:v.joined_on??"",notes:v.notes??"",status:v.status});setShowForm(true);setError("");setNotice("");}
+
+ async function saveVolunteer(event:FormEvent<HTMLFormElement>){
+  event.preventDefault();setBusy(true);setError("");setNotice("");
+  const name=form.full_name.trim();
+  const wage=form.daily_wage.trim()===""?null:Number(form.daily_wage)/1000;
+  if(name.length<2){setError("Nama relawan minimal 2 karakter.");setBusy(false);return;}
+  if(wage!==null&&(!Number.isFinite(wage)||wage<0)){setError("Upah harian harus berupa angka nol atau lebih.");setBusy(false);return;}
+  const payload={workspace_id:workspaceId,full_name:name,section_id:form.section_id||null,daily_wage:wage,joined_on:form.joined_on||null,notes:form.notes.trim()||null,status:form.status};
+  const result=editing?await supabase.from("volunteers").update(payload).eq("id",editing.id).eq("workspace_id",workspaceId):await supabase.from("volunteers").insert({...payload,created_by:(await supabase.auth.getUser()).data.user?.id??null});
+  if(result.error){setError(result.error.message);setBusy(false);return;}
+  setShowForm(false);setNotice(editing?"Data relawan diperbarui.":"Relawan berhasil ditambahkan.");await load();setBusy(false);
+ }
+
+ async function exportVolunteers(){
+  const rows=volunteers.filter(v=>sectionFilter==="all"||v.section_id===sectionFilter).filter(v=>!search||v.full_name.toLowerCase().includes(search.toLowerCase())).map(v=>({
+   full_name:v.full_name,
+   section_name:sections.find(s=>s.id===v.section_id)?.name??"",
+   daily_wage:v.daily_wage,
+   status:v.status,
+   joined_on:v.joined_on,
+   notes:v.notes
+  }));
+  if(rows.length===0){setError("Tidak ada data relawan untuk diekspor.");return;}
+  const blob=new Blob([volunteersToCsv(rows)],{type:"text/csv;charset=utf-8;"});
+  const url=URL.createObjectURL(blob);
+  const link=document.createElement("a");
+  link.href=url;
+  link.download="data-relawan-"+new Date().toISOString().slice(0,10)+".csv";
+  document.body.appendChild(link);link.click();link.remove();URL.revokeObjectURL(url);
+  setNotice(rows.length+" data relawan berhasil diekspor ke CSV.");
+  setError("");
+ }
+ async function previewVolunteerImport(file:File){
+  setError("");setNotice("");setImportRows([]);setImportErrors([]);
+  if(!file.name.toLowerCase().endsWith(".csv")){setError("Pilih file berformat .csv.");return;}
+  if(file.size>2*1024*1024){setError("Ukuran file maksimal 2 MB.");return;}
+  try{
+   const parsed=parseVolunteersCsv(await file.text(),sections);
+   const existing=new Set(volunteers.map(v=>v.full_name.trim().toLocaleLowerCase("id-ID")));
+   const duplicateErrors=parsed.rows.filter(row=>existing.has(row.full_name.trim().toLocaleLowerCase("id-ID"))).map(row=>"Nama '"+row.full_name+"' sudah terdaftar di workspace.");
+   if(parsed.rows.length>500)duplicateErrors.push("Maksimal 500 relawan per proses impor.");
+   setImportRows(parsed.rows);setImportErrors([...parsed.errors,...duplicateErrors]);
+  }catch{setImportErrors(["File CSV tidak dapat dibaca. Pastikan encoding UTF-8 dan format CSV valid."]);}
+ }
+ async function commitVolunteerImport(){
+  if(!canManage||importRows.length===0||importErrors.length>0)return;
+  setBusy(true);setError("");setNotice("");
+  const {data:{user}}=await supabase.auth.getUser();
+  if(!user){setError("Sesi login berakhir. Masuk kembali.");setBusy(false);return;}
+  const payload=importRows.map(row=>({workspace_id:workspaceId,full_name:row.full_name,section_id:row.section_id,daily_wage:row.daily_wage,joined_on:row.joined_on,notes:row.notes,status:row.status,created_by:user.id}));
+  const result=await supabase.from("volunteers").insert(payload);
+  if(result.error){setError("Impor gagal dan tidak ada data yang dikonfirmasi tersimpan: "+result.error.message);}
+  else{setNotice(importRows.length+" relawan berhasil diimpor.");setImportRows([]);setImportErrors([]);await load();}
+  setBusy(false);
+ }
+ async function createSection(){
+  const name=sectionName.trim();if(name.length<1||name.length>80){setError("Nama bagian harus 1 sampai 80 karakter.");return;}
+  setBusy(true);setError("");setNotice("");
+  const {error:insertError}=await supabase.from("sections").insert({workspace_id:workspaceId,name,sort_order:sections.length});
+  if(insertError)setError(insertError.message);else{setSectionName("");setNotice("Bagian kerja ditambahkan.");await load();}
+  setBusy(false);
+ }
+
+ async function deleteVolunteer(v:Volunteer){
+  if(!canDelete||!window.confirm("Hapus relawan ini? Riwayat absensinya juga akan terhapus."))return;
+  setBusy(true);setError("");const {error:deleteError}=await supabase.from("volunteers").delete().eq("id",v.id).eq("workspace_id",workspaceId);
+  if(deleteError)setError(deleteError.message);else{setNotice("Relawan dihapus.");await load();}setBusy(false);
+ }
+
+ function setAttendance(id:string,status:Attendance["status"]){
+  setRecords(prev=>({...prev,[id]:{volunteer_id:id,status,clock_in:prev[id]?.clock_in??null,clock_out:prev[id]?.clock_out??null,notes:prev[id]?.notes??null,correction_reason:prev[id]?.correction_reason??null}}));
+ }
+ function applyBulkAttendance(ids:string[]){
+  if(ids.length===0){setError("Pilih relawan atau bagian kerja terlebih dahulu.");return;}
+  setRecords(prev=>{const next={...prev};for(const id of ids)next[id]={volunteer_id:id,status:bulkStatus,clock_in:prev[id]?.clock_in??null,clock_out:prev[id]?.clock_out??null,notes:prev[id]?.notes??null,correction_reason:prev[id]?.correction_reason??null};return next;});
+  setNotice("Status "+statusLabels[bulkStatus]+" diterapkan ke "+ids.length+" relawan. Simpan absensi untuk menyimpan perubahan.");
+  setError("");
+ }
+ async function markCorrectionReviewed(review:CorrectionReview){const user=(await supabase.auth.getUser()).data.user;if(!user){setError("Sesi login berakhir. Masuk kembali.");return;}setBusy(true);setError("");const {error:e}=await supabase.from("attendance_correction_reviews").update({review_status:"reviewed",reviewed_by:user.id,reviewed_at:new Date().toISOString()}).eq("id",review.id).eq("workspace_id",workspaceId).eq("review_status","pending");if(e)setError(e.message);else{setNotice("Koreksi absensi ditandai telah ditinjau.");await load();}setBusy(false);}
+ async function saveAttendance(){
+  setBusy(true);setError("");setNotice("");
+  const selectedWeekday=new Date(date+"T12:00:00Z").getUTCDay();
+  if([0,6].includes(selectedWeekday)){setError("Absensi tidak dapat dicatat pada Sabtu atau Minggu karena merupakan hari libur.");setBusy(false);return;}
+  const {data:{user}}=await supabase.auth.getUser();
+  if(!user){setError("Sesi login berakhir. Masuk kembali.");setBusy(false);return;}
+  const rowsToSave=volunteers.filter(v=>Boolean(records[v.id]));
+  if(rowsToSave.length===0){setError("Belum ada status absensi yang dipilih.");setBusy(false);return;}
+  const changedExisting=rowsToSave.filter(v=>{const before=originalRecords.current[v.id],after=records[v.id];return Boolean(before)&&(before.status!==after.status||before.clock_in!==after.clock_in||before.clock_out!==after.clock_out||before.notes!==after.notes);});
+  if(changedExisting.length>0&&correctionReason.trim().length<5){setError("Alasan koreksi wajib diisi minimal 5 karakter untuk mengubah absensi yang sudah tersimpan.");setBusy(false);return;}
+  const {data:existingRows,error:existingError}=await supabase.from("attendance_records").select("volunteer_id,recorded_by").eq("workspace_id",workspaceId).eq("work_date",date);
+  if(existingError){setError(existingError.message);setBusy(false);return;}
+  const originalRecorder=new Map((existingRows??[]).map(row=>[row.volunteer_id,row.recorded_by]));
+  const rows=rowsToSave.map(v=>({workspace_id:workspaceId,volunteer_id:v.id,work_date:date,status:records[v.id].status,clock_in:records[v.id].clock_in,clock_out:records[v.id].clock_out,notes:records[v.id].notes,correction_reason:changedExisting.some(item=>item.id===v.id)?correctionReason.trim():(originalRecords.current[v.id]?.correction_reason??null),recorded_by:originalRecorder.get(v.id)??user.id,updated_by:user.id}));
+  const {error:saveError}=await supabase.from("attendance_records").upsert(rows,{onConflict:"workspace_id,volunteer_id,work_date"});
+  if(saveError)setError(saveError.message);else{setNotice(`${rows.length} catatan absensi berhasil disimpan untuk ${date}.`);await load();}
+  setBusy(false);
+ }
+
+ async function signOut(){await supabase.auth.signOut();window.location.href="/login";}
+ return <main className="min-h-screen bg-[var(--background)]">
+  <header className="border-b border-[var(--line)] bg-white"><div className="mx-auto flex max-w-[1440px] items-center justify-between px-5 py-4 lg:px-10"><Link href="/" className="font-semibold text-[var(--green)]">SPPG Management</Link><div className="flex items-center gap-3"><span className="hidden text-xs text-[var(--muted)] sm:inline">{workspaceName} · {role}</span><button onClick={signOut} className="rounded-lg border border-[var(--line)] px-3 py-2 text-xs">Keluar</button></div></div></header>
+  <div className="mx-auto max-w-[1440px] px-5 py-8 lg:px-10">
+   <p className="text-xs font-semibold uppercase tracking-[.16em] text-[var(--green)]">Workforce operations</p><h1 className="mt-2 text-3xl font-semibold tracking-tight">Relawan & absensi</h1><p className="mt-2 text-sm text-[var(--muted)]">Kelola data personel dan pencatatan kehadiran dalam satu alur kerja.</p>
+   <div className="mt-6 flex flex-wrap gap-2 border-b border-[var(--line)]">{([{id:"volunteers",label:"Data relawan"},{id:"attendance",label:"Absensi harian"}] as const).map(t=><button key={t.id} onClick={()=>setTab(t.id)} className={`border-b-2 px-4 py-3 text-sm font-medium ${tab===t.id?"border-[var(--green)] text-[var(--green)]":"border-transparent text-[var(--muted)]"}`}>{t.label}</button>)}</div>
+   {error&&<p role="alert" className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p>}{notice&&<p role="status" className="mt-4 rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-800">{notice}</p>}
+   {tab==="volunteers"?<section className="mt-6">
+    <div className="grid gap-3 sm:grid-cols-3"><Metric label="Total relawan" value={counts.total}/><Metric label="Aktif" value={counts.active}/><Metric label="Bagian kerja" value={counts.sections}/></div>
+    <div className="mt-5 flex flex-col gap-3 rounded-xl border border-[var(--line)] bg-white p-4 sm:flex-row sm:items-center sm:justify-between"><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Cari nama relawan..." className={`${field} sm:max-w-sm`}/><div className="flex flex-wrap gap-2"><select value={sectionFilter} onChange={e=>setSectionFilter(e.target.value)} className={field+" sm:w-48"}><option value="all">Semua bagian</option>{sections.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select><button type="button" disabled={loading||volunteers.length===0} onClick={exportVolunteers} className="rounded-lg border border-[var(--line)] px-3 py-2.5 text-sm font-medium">Ekspor CSV</button>{canManage&&<button onClick={startCreate} className={button}>+ Tambah relawan</button>}{["owner","admin","hr","operations"].includes(role)&&<form onSubmit={e=>{e.preventDefault();void createSection();}} className="flex gap-2"><input aria-label="Nama bagian kerja baru" value={sectionName} onChange={e=>setSectionName(e.target.value)} placeholder="Bagian kerja baru" maxLength={80} className={field+" sm:w-44"}/><button disabled={busy||!sectionName.trim()} className="rounded-lg border border-[var(--line)] px-3 py-2 text-xs font-medium">Tambah bagian</button></form>}</div></div>
+    {canManage&&<section className="mt-4 rounded-xl border border-[var(--line)] bg-white p-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-semibold">Impor relawan dari CSV</h2><p className="mt-1 text-xs text-[var(--muted)]">Gunakan file hasil Ekspor CSV. Impor hanya menambahkan data baru, tidak menimpa relawan yang sudah ada.</p></div><label className="cursor-pointer rounded-lg border border-[var(--line)] px-3 py-2.5 text-sm font-medium">Pilih file CSV<input type="file" accept=".csv,text/csv" className="sr-only" disabled={busy||loading} onChange={e=>{const file=e.target.files?.[0];if(file)void previewVolunteerImport(file);e.currentTarget.value="";}}/></label></div>
+     {importRows.length>0&&<div className="mt-4 rounded-lg bg-[#f7f8f6] p-3"><p className="text-sm font-semibold">Pratinjau: {importRows.length} baris valid</p><div className="mt-3 max-h-64 overflow-auto"><table className="w-full min-w-[560px] text-left text-xs"><thead><tr>{["Nama","Bagian","Upah harian","Status","Tanggal bergabung"].map(x=><th key={x} className="px-2 py-2">{x}</th>)}</tr></thead><tbody>{importRows.slice(0,100).map((row,i)=><tr key={i} className="border-t border-[var(--line)]"><td className="px-2 py-2">{row.full_name}</td><td className="px-2 py-2">{row.section_name||"—"}</td><td className="px-2 py-2">{row.daily_wage===null?"—":new Intl.NumberFormat("id-ID",{style:"currency",currency:"IDR",maximumFractionDigits:0}).format(row.daily_wage*1000)}</td><td className="px-2 py-2">{row.status==="active"?"Aktif":"Nonaktif"}</td><td className="px-2 py-2">{row.joined_on??"—"}</td></tr>)}</tbody></table></div>{importRows.length>100&&<p className="mt-2 text-xs text-[var(--muted)]">Pratinjau menampilkan 100 baris pertama.</p>}
+      {importErrors.length>0&&<div className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3"><p className="text-sm font-semibold text-red-700">{importErrors.length} masalah ditemukan. Perbaiki CSV sebelum impor.</p><ul className="mt-2 max-h-32 list-inside list-disc overflow-auto text-xs text-red-700">{importErrors.slice(0,30).map((item,i)=><li key={i}>{item}</li>)}</ul></div>}
+      <div className="mt-3 flex flex-wrap gap-2"><button type="button" disabled={busy||importErrors.length>0} onClick={()=>void commitVolunteerImport()} className={button}>{busy?"Mengimpor...":"Konfirmasi impor"}</button><button type="button" disabled={busy} onClick={()=>{setImportRows([]);setImportErrors([]);}} className="rounded-lg border border-[var(--line)] px-4 py-2.5 text-sm">Batal</button></div>
+     </div>}
+    </section>}
+    {showForm&&<form onSubmit={saveVolunteer} className="mt-4 rounded-xl border border-[var(--line)] bg-white p-5"><div className="flex items-center justify-between"><h2 className="font-semibold">{editing?"Ubah relawan":"Tambah relawan"}</h2><button type="button" onClick={()=>setShowForm(false)} className="text-sm text-[var(--muted)]">Tutup</button></div><div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+     <Field label="Nama lengkap *"><input required minLength={2} maxLength={160} value={form.full_name} onChange={e=>setForm({...form,full_name:e.target.value})} className={field}/></Field>
+     
+     <Field label="Bagian kerja"><select value={form.section_id} onChange={e=>setForm({...form,section_id:e.target.value})} className={field}><option value="">Belum ditentukan</option>{sections.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></Field>
+     
+     
+     <Field label="Upah Harian (opsional)"><input type="number" min="0" step="1000" inputMode="numeric" value={form.daily_wage} onChange={e=>setForm({...form,daily_wage:e.target.value})} className={field}/></Field>
+     <Field label="Tanggal bergabung"><input type="date" value={form.joined_on} onChange={e=>setForm({...form,joined_on:e.target.value})} className={field}/></Field>
+     <Field label="Status"><select value={form.status} onChange={e=>setForm({...form,status:e.target.value as "active"|"inactive"})} className={field}><option value="active">Aktif</option><option value="inactive">Nonaktif</option></select></Field>
+     <Field label="Catatan"><input maxLength={2000} value={form.notes} onChange={e=>setForm({...form,notes:e.target.value})} className={field}/></Field>
+    </div><button disabled={busy} className={button+" mt-4"}>{busy?"Menyimpan...":"Simpan relawan"}</button></form>}
+    <div className="mt-4 overflow-hidden rounded-xl border border-[var(--line)] bg-white"><div className="overflow-x-auto"><table className="w-full min-w-[640px] text-left text-sm"><thead className="bg-[#f7f8f6] text-xs uppercase text-[var(--muted)]"><tr>{["Nama","Bagian kerja","Upah harian","Status","Aksi"].map(h=><th key={h} className="px-4 py-3 font-medium">{h}</th>)}</tr></thead><tbody>{loading?<tr><td colSpan={5} className="px-4 py-12 text-center text-[var(--muted)]">Memuat data...</td></tr>:visible.length===0?<tr><td colSpan={5} className="px-4 py-12 text-center text-[var(--muted)]">Belum ada relawan. Tambahkan data pertama untuk memulai.</td></tr>:visible.map(v=><tr key={v.id} className="border-t border-[var(--line)]"><td className="px-4 py-3 font-medium">{v.full_name}</td><td className="px-4 py-3">{sections.find(s=>s.id===v.section_id)?.name||"Belum ditentukan"}</td><td className="px-4 py-3">{v.daily_wage===null?"—":new Intl.NumberFormat("id-ID",{style:"currency",currency:"IDR",maximumFractionDigits:0}).format(v.daily_wage*1000)}</td><td className="px-4 py-3"><span className="rounded-full bg-[#eef4ef] px-2.5 py-1 text-xs">{v.status==="active"?"Aktif":"Nonaktif"}</span></td><td className="px-4 py-3"><div className="flex gap-2">{canManage&&<button onClick={()=>startEdit(v)} className="text-xs font-medium text-[var(--green)]">Ubah</button>}{canDelete&&<button disabled={busy} onClick={()=>void deleteVolunteer(v)} className="text-xs text-red-700">Hapus</button>}</div></td></tr>)}</tbody></table></div><p className="border-t border-[var(--line)] px-4 py-3 text-xs text-[var(--muted)]">Menampilkan {visible.length} dari {volunteers.length} relawan.</p></div>
+   </section>:<section className="mt-6">
+     {canManage&&<section className="mb-4 rounded-xl border border-[var(--line)] bg-white p-4"><div className="flex flex-wrap items-center justify-between gap-2"><div><h2 className="font-semibold">Peninjauan koreksi absensi</h2><p className="mt-1 text-xs text-[var(--muted)]">Perubahan pada absensi tersimpan masuk ke antrean ini dan tetap tercatat di audit trail.</p></div><span className="text-xs text-[var(--muted)]">{correctionReviews.filter(r=>r.review_status==="pending").length} menunggu</span></div>{correctionReviews.length===0?<p className="mt-3 text-sm text-[var(--muted)]">Belum ada koreksi yang perlu ditinjau.</p>:<div className="mt-3 space-y-2">{correctionReviews.map(review=><article key={review.id} className="rounded-lg border border-[var(--line)] p-3"><div className="flex flex-wrap items-start justify-between gap-2"><div><p className="text-sm font-medium">{volunteers.find(v=>v.id===review.volunteer_id)?.full_name??"Relawan"} · {review.work_date}</p><p className="mt-1 text-xs text-[var(--muted)]">{statusLabels[review.before_data.status as Attendance["status"]]??review.before_data.status} → {statusLabels[review.after_data.status as Attendance["status"]]??review.after_data.status}</p><p className="mt-2 text-sm">{review.correction_reason}</p></div>{review.review_status==="pending"?<button type="button" disabled={busy} onClick={()=>void markCorrectionReviewed(review)} className="rounded-lg border border-[var(--line)] px-3 py-2 text-xs font-semibold disabled:opacity-50">Tandai ditinjau</button>:<span className="rounded-full bg-[#eef4ef] px-2.5 py-1 text-xs">Ditinjau</span>}</div><p className="mt-2 text-xs text-[var(--muted)]">{new Intl.DateTimeFormat("id-ID",{dateStyle:"medium",timeStyle:"short"}).format(new Date(review.requested_at))}</p></article>)}</div>}</section>}
+     <div className="flex flex-col gap-3 rounded-xl border border-[var(--line)] bg-white p-4 sm:flex-row sm:items-end sm:justify-between"><div><label htmlFor="work-date" className="block text-xs text-[var(--muted)]">Tanggal kerja</label><input id="work-date" type="date" value={date} onChange={e=>{setDate(e.target.value);setSelectedAttendanceIds(new Set());}} className={field+" mt-2 sm:w-52"}/></div><div className="flex flex-wrap gap-2 text-xs">{Object.entries(statusLabels).map(([k,v])=><span key={k} className="rounded-full bg-[#f3f5f2] px-3 py-2">{v}: {attendanceCounts[k as Attendance["status"]]??0}</span>)}</div></div>
+     <div className="mt-4 flex flex-col gap-3 rounded-xl border border-[var(--line)] bg-white p-4">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_auto_auto_auto] lg:items-end">
+       <label className="block space-y-2 text-xs text-[var(--muted)]">Filter bagian kerja<select value={attendanceSectionFilter} onChange={e=>{setAttendanceSectionFilter(e.target.value);setSelectedAttendanceIds(new Set());}} className={field}><option value="all">Semua bagian</option>{sections.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
+       <label className="block space-y-2 text-xs text-[var(--muted)]">Status massal<select value={bulkStatus} onChange={e=>setBulkStatus(e.target.value as Attendance["status"])} className={field}>{Object.entries(statusLabels).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>
+       <button type="button" disabled={loading||attendanceVisible.length===0} onClick={()=>setSelectedAttendanceIds(new Set(attendanceVisible.map(v=>v.id)))} className="rounded-lg border border-[var(--line)] px-3 py-2.5 text-sm">Pilih semua</button>
+       <button type="button" disabled={selectedAttendanceIds.size===0} onClick={()=>setSelectedAttendanceIds(new Set())} className="rounded-lg border border-[var(--line)] px-3 py-2.5 text-sm">Bersihkan</button>
+       <button type="button" disabled={!canManage||busy||selectedAttendanceIds.size===0} onClick={()=>applyBulkAttendance(attendanceVisible.filter(v=>selectedAttendanceIds.has(v.id)).map(v=>v.id))} className={button}>Terapkan ke pilihan</button>
+      </div>
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--line)] pt-3"><p className="text-xs text-[var(--muted)]">{selectedAttendanceIds.size} dipilih · {attendanceVisible.length} relawan pada filter ini. Relawan nonaktif hanya tampil jika sudah memiliki riwayat absensi.</p><button type="button" disabled={!canManage||busy||attendanceVisible.filter(v=>v.status==="active").length===0} onClick={()=>{const ids=attendanceVisible.filter(v=>v.status==="active").map(v=>v.id);applyBulkAttendance(ids);setSelectedAttendanceIds(new Set(ids));}} className="rounded-lg border border-[var(--line)] px-3 py-2 text-sm">Terapkan ke {attendanceSectionFilter==="all"?"semua relawan aktif":"bagian ini"}</button></div>
+     </div>
+     <div className="mt-4 overflow-hidden rounded-xl border border-[var(--line)] bg-white"><div className="overflow-x-auto"><table className="w-full min-w-[760px] text-left text-sm"><thead className="bg-[#f7f8f6] text-xs uppercase text-[var(--muted)]"><tr><th className="px-4 py-3"><input aria-label="Pilih semua relawan yang terlihat" type="checkbox" checked={attendanceVisible.length>0&&attendanceVisible.every(v=>selectedAttendanceIds.has(v.id))} onChange={e=>setSelectedAttendanceIds(e.target.checked?new Set(attendanceVisible.map(v=>v.id)):new Set())}/></th><th className="px-4 py-3">Relawan</th><th className="px-4 py-3">Bagian</th><th className="px-4 py-3">Kehadiran</th></tr></thead><tbody>{loading?<tr><td colSpan={4} className="px-4 py-12 text-center">Memuat data...</td></tr>:attendanceVisible.length===0?<tr><td colSpan={4} className="px-4 py-12 text-center text-[var(--muted)]">Belum ada relawan aktif. Tambahkan relawan terlebih dahulu.</td></tr>:attendanceVisible.map(v=><tr key={v.id} className="border-t border-[var(--line)]"><td className="px-4 py-3"><input aria-label={`Pilih ${v.full_name}`} type="checkbox" checked={selectedAttendanceIds.has(v.id)} onChange={e=>setSelectedAttendanceIds(prev=>{const next=new Set(prev);if(e.target.checked)next.add(v.id);else next.delete(v.id);return next;})}/></td><td className="px-4 py-3"><p className="font-medium">{v.full_name}</p>{v.status==="inactive"&&<span className="text-xs text-[var(--muted)]">Nonaktif · riwayat</span>}</td><td className="px-4 py-3">{sections.find(s=>s.id===v.section_id)?.name||"—"}</td><td className="px-4 py-3"><select aria-label={`Status kehadiran ${v.full_name}`} value={records[v.id]?.status??""} onChange={e=>e.target.value&&setAttendance(v.id,e.target.value as Attendance["status"])} className={field+" max-w-48"}><option value="">Belum dicatat</option>{Object.entries(statusLabels).map(([k,label])=><option key={k} value={k}>{label}</option>)}</select></td></tr>)}</tbody></table></div><div className="border-t border-[var(--line)] p-4"><label className="block max-w-2xl space-y-2 text-xs text-[var(--muted)]">Alasan koreksi (wajib jika mengubah absensi yang sudah tersimpan)<textarea rows={2} maxLength={1000} value={correctionReason} onChange={e=>setCorrectionReason(e.target.value)} placeholder="Contoh: Status sebelumnya salah input; dikonfirmasi ulang dengan penanggung jawab." className={field}/></label></div><div className="flex flex-col gap-3 border-t border-[var(--line)] p-4 sm:flex-row sm:items-center sm:justify-between"><p className="text-xs text-[var(--muted)]">Perubahan pada catatan tersimpan wajib disertai alasan dan otomatis masuk antrean peninjauan. Absensi baru tidak memerlukan alasan koreksi.</p>{canManage?<button disabled={busy||loading} onClick={()=>void saveAttendance()} className={button}>{busy?"Menyimpan...":"Simpan absensi"}</button>:<p className="text-xs text-[var(--muted)]">Akses input absensi memerlukan role HR, admin, atau owner.</p>}</div></div>
+   </section>}
+  </div>
+ </main>;
+}
+
+function Metric({label,value}:{label:string;value:number}){return <article className="rounded-xl border border-[var(--line)] bg-white p-5"><p className="text-sm text-[var(--muted)]">{label}</p><p className="mt-3 text-2xl font-semibold">{value}</p></article>}
+function Field({label,children}:{label:string;children:React.ReactNode}){return <label className="block space-y-2 text-xs font-medium text-[var(--muted)]">{label}{children}</label>}

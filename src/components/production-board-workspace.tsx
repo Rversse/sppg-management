@@ -1,15 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { SignOutButton } from "@/components/sign-out-button";
 
 type Status = "planned" | "preparing" | "ready" | "completed" | "cancelled";
 type Plan = { id: string; menu_id: string; planned_date: string; portion_count: number; status: Status; production_notes: string | null };
 type Menu = { id: string; name: string; description: string | null; prep_duration_minutes: number | null; cook_duration_minutes: number | null; production_notes: string | null };
-type Batch = { id: string; menu_plan_id: string; batch_number: number; portion_count: number; status: "queued" | "preparing" | "blocked" | "ready" | "completed" | "cancelled"; assigned_volunteer_id: string | null; blocker_note: string | null; work_notes: string | null };
+type Batch = { id: string; menu_plan_id: string; batch_number: number; portion_count: number; status: "queued" | "preparing" | "blocked" | "ready" | "completed" | "cancelled"; assigned_volunteer_id: string | null; blocker_note: string | null; work_notes: string | null; started_at: string | null; completed_at: string | null };
 type Volunteer = { id: string; full_name: string; status: "active" | "inactive" };
+type BatchStage = { id: string; batch_id: string; step_order: number; title: string; started_at: string; completed_at: string | null };
 type Detail = { components: { id: string; item_name: string; category: string; quantity: number | null; unit: string | null; preparation_note: string | null }[]; seasonings: { id: string; ingredient_name: string; quantity: number | null; unit: string | null; preparation_note: string | null }[]; steps: { id: string; step_order: number; title: string; instructions: string; duration_minutes: number | null; critical_note: string | null }[] };
 const batchStatuses = [{ value: "queued", label: "Antre" }, { value: "preparing", label: "Dikerjakan" }, { value: "blocked", label: "Terhambat" }, { value: "ready", label: "Siap" }, { value: "completed", label: "Selesai" }, { value: "cancelled", label: "Dibatalkan" }] as const;
 const statuses: { value: Status; label: string }[] = [{ value: "planned", label: "Terencana" }, { value: "preparing", label: "Diproses" }, { value: "ready", label: "Siap" }, { value: "completed", label: "Selesai" }, { value: "cancelled", label: "Dibatalkan" }];
@@ -24,6 +25,7 @@ export function ProductionBoardWorkspace({ workspaceId, workspaceName, role }: {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [menus, setMenus] = useState<Menu[]>([]);
   const [batches, setBatches] = useState<Batch[]>([]);
+  const [batchStages, setBatchStages] = useState<BatchStage[]>([]);
   const [volunteers, setVolunteers] = useState<Volunteer[]>([]);
   const [batchPortions, setBatchPortions] = useState<Record<string, string>>({});
   const [batchAssignees, setBatchAssignees] = useState<Record<string, string>>({});
@@ -33,6 +35,7 @@ export function ProductionBoardWorkspace({ workspaceId, workspaceName, role }: {
   const [from, setFrom] = useState(() => shift(todayJakarta(), -7));
   const [to, setTo] = useState(() => shift(todayJakarta(), 14));
   const [loading, setLoading] = useState(true);
+  const loadSequence = useRef(0);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -42,25 +45,45 @@ export function ProductionBoardWorkspace({ workspaceId, workspaceName, role }: {
   const active = plans.filter(p => p.status === "preparing").length;
   const ready = plans.filter(p => p.status === "ready").length;
   const planned = plans.filter(p => p.status === "planned").length;
-  const queuedBatches = batches.filter(b => b.status === "queued").length;
-  const blockedBatches = batches.filter(b => b.status === "blocked").length;
-  const completedBatches = batches.filter(b => b.status === "completed").length;
+  const planIds = new Set(plans.map(p => p.id));
+  const rangeBatches = batches.filter(b => planIds.has(b.menu_plan_id));
+  const queuedBatches = rangeBatches.filter(b => b.status === "queued").length;
+  const blockedBatches = rangeBatches.filter(b => b.status === "blocked").length;
+  const completedBatches = rangeBatches.filter(b => b.status === "completed").length;
+  const completedDurations = rangeBatches.filter(b => b.status === "completed" && b.started_at && b.completed_at).map(b => (new Date(b.completed_at!).getTime() - new Date(b.started_at!).getTime()) / 60000).filter(n => Number.isFinite(n) && n >= 0);
+  const averageBatchMinutes = completedDurations.length ? Math.round(completedDurations.reduce((sum, n) => sum + n, 0) / completedDurations.length) : null;
 
   const load = useCallback(async () => {
+    const sequence = ++loadSequence.current;
     setLoading(true); setError("");
-    const [p, m, b, v] = await Promise.all([
+    const [p, m, b, v, st] = await Promise.all([
       supabase.from("menu_plans").select("id,menu_id,planned_date,portion_count,status,production_notes").eq("workspace_id", workspaceId).gte("planned_date", from).lte("planned_date", to).order("planned_date").order("created_at"),
       supabase.from("menu_items").select("id,name,description,prep_duration_minutes,cook_duration_minutes,production_notes").eq("workspace_id", workspaceId),
-      supabase.from("production_batches").select("id,menu_plan_id,batch_number,portion_count,status,assigned_volunteer_id,blocker_note,work_notes").eq("workspace_id", workspaceId).order("batch_number"),
-      supabase.from("volunteers").select("id,full_name,status").eq("workspace_id", workspaceId).order("full_name")
+      supabase.from("production_batches").select("id,menu_plan_id,batch_number,portion_count,status,assigned_volunteer_id,blocker_note,work_notes,started_at,completed_at").eq("workspace_id", workspaceId).order("batch_number"),
+      supabase.from("volunteers").select("id,full_name,status").eq("workspace_id", workspaceId).order("full_name"),
+      supabase.from("production_batch_stages").select("id,batch_id,step_order,title,started_at,completed_at").eq("workspace_id", workspaceId).order("step_order")
     ]);
-    if (p.error || m.error || b.error || v.error) setError(p.error?.message ?? m.error?.message ?? b.error?.message ?? v.error?.message ?? "Gagal memuat antrean produksi.");
-    else { setPlans(p.data ?? []); setMenus(m.data ?? []); setBatches(b.data ?? []); setVolunteers(v.data ?? []); }
+    if (sequence !== loadSequence.current) return;
+    if (p.error || m.error || b.error || v.error || st.error) setError(p.error?.message ?? m.error?.message ?? b.error?.message ?? v.error?.message ?? st.error?.message ?? "Gagal memuat antrean produksi.");
+    else { setPlans(p.data ?? []); setMenus(m.data ?? []); setBatches(b.data ?? []); setVolunteers(v.data ?? []); setBatchStages(st.data ?? []); }
     setLoading(false);
   }, [supabase, workspaceId, from, to]);
   useEffect(() => { void load(); }, [load]);
 
   async function setStatus(plan: Plan, status: Status) {
+    if (status === "completed") {
+      const planBatches = batches.filter(b => b.menu_plan_id === plan.id);
+      const unfinished = planBatches.some(b => b.status !== "completed" && b.status !== "cancelled");
+      const unallocated = remainingPortions(plan);
+      if (planBatches.length === 0 || unallocated > 0 || unfinished) {
+        setError(planBatches.length === 0
+          ? "Rencana belum dapat diselesaikan karena belum memiliki batch produksi."
+          : unallocated > 0
+            ? `Rencana belum dapat diselesaikan. Masih ada ${unallocated.toLocaleString("id-ID")} porsi yang belum dialokasikan ke batch.`
+            : "Rencana belum dapat diselesaikan karena masih ada batch yang belum selesai atau dibatalkan.");
+        return;
+      }
+    }
     setBusy(plan.id); setError(""); setNotice("");
     const user = (await supabase.auth.getUser()).data.user;
     const { error: e } = await supabase.from("menu_plans").update({ status, updated_by: user?.id ?? null }).eq("id", plan.id).eq("workspace_id", workspaceId);
@@ -87,9 +110,22 @@ export function ProductionBoardWorkspace({ workspaceId, workspaceName, role }: {
     const user = (await supabase.auth.getUser()).data.user;
     setBusy(batch.id); setError(""); setNotice("");
     const now = new Date().toISOString();
-    const patch = { status, blocker_note: status === "blocked" ? blocker : null, started_at: status === "preparing" ? batch.status === "queued" ? now : undefined : undefined, completed_at: status === "completed" ? now : null, updated_by: user?.id ?? null };
+    const patch = { status, blocker_note: status === "blocked" ? blocker : null, started_at: status === "preparing" ? batch.started_at ?? now : batch.started_at, completed_at: status === "completed" ? now : null, updated_by: user?.id ?? null };
     const { error: e } = await supabase.from("production_batches").update(patch).eq("id", batch.id).eq("workspace_id", workspaceId);
     if (e) setError(e.message); else { setNotice("Status batch diperbarui."); await load(); }
+    setBusy("");
+  }
+
+  async function recordStage(batch: Batch, step: Detail["steps"][number], existing?: BatchStage) {
+    if (batch.status === "completed") return;
+    setBusy(batch.id); setError(""); setNotice("");
+    const user = (await supabase.auth.getUser()).data.user;
+    const now = new Date().toISOString();
+    const result = existing
+      ? await supabase.from("production_batch_stages").update({ completed_at: now, completed_by: user?.id ?? null }).eq("id", existing.id).eq("workspace_id", workspaceId).is("completed_at", null)
+      : await supabase.from("production_batch_stages").insert({ workspace_id: workspaceId, batch_id: batch.id, step_order: step.step_order, title: step.title, started_by: user?.id ?? null });
+    if (result.error) setError(result.error.message);
+    else { setNotice(existing ? "Tahap produksi ditandai selesai." : "Waktu mulai tahap produksi dicatat."); await load(); }
     setBusy("");
   }
 
@@ -119,18 +155,19 @@ export function ProductionBoardWorkspace({ workspaceId, workspaceName, role }: {
     <div className="mx-auto max-w-[1440px] px-5 py-8 lg:px-10">
       <p className="text-xs font-semibold uppercase tracking-[.16em] text-[var(--green)]">Food operations</p><h1 className="mt-2 text-3xl font-semibold tracking-tight">Papan produksi</h1><p className="mt-2 text-sm text-[var(--muted)]">Antrean produksi dari kalender menu, lengkap dengan komposisi resep dan instruksi kerja.</p>
       {error && <p role="alert" className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}{notice && <p role="status" className="mt-4 rounded-lg bg-green-50 p-3 text-sm text-green-800">{notice}</p>}
-      <section className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-6"><Metric label="Rencana menunggu" value={planned}/><Metric label="Rencana diproses" value={active}/><Metric label="Rencana siap" value={ready}/><Metric label="Batch antre" value={queuedBatches}/><Metric label="Batch terhambat" value={blockedBatches}/><Metric label="Batch selesai" value={completedBatches}/></section>
+      <section className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-7"><Metric label="Rencana menunggu" value={planned}/><Metric label="Rencana diproses" value={active}/><Metric label="Rencana siap" value={ready}/><Metric label="Batch antre" value={queuedBatches}/><Metric label="Batch terhambat" value={blockedBatches}/><Metric label="Batch selesai" value={completedBatches}/><Metric label="Rata-rata durasi batch selesai" value={averageBatchMinutes === null ? "—" : `${Math.floor(averageBatchMinutes / 60)}j ${averageBatchMinutes % 60}m`}/></section>
       <section className="mt-6 flex flex-wrap items-end justify-between gap-3 rounded-xl border border-[var(--line)] bg-white p-4"><div className="flex flex-wrap gap-3"><label className="block space-y-1 text-xs text-[var(--muted)]">Dari tanggal<input type="date" value={from} onChange={e=>setFrom(e.target.value)} className={input+" block"}/></label><label className="block space-y-1 text-xs text-[var(--muted)]">Sampai tanggal<input type="date" min={from} value={to} onChange={e=>setTo(e.target.value)} className={input+" block"}/></label></div><select value={filter} onChange={e=>setFilter(e.target.value as "all"|Status)} className={input}><option value="all">Semua status</option>{statuses.map(s=><option key={s.value} value={s.value}>{s.label}</option>)}</select></section>
       <section className="mt-6 space-y-3">
-        {loading ? <p className="rounded-xl border border-[var(--line)] bg-white py-12 text-center text-sm text-[var(--muted)]">Memuat antrean produksi...</p> : visible.length === 0 ? <div className="rounded-xl border border-dashed border-[var(--line)] bg-white py-14 text-center"><h2 className="font-semibold">Belum ada antrean produksi</h2><p className="mt-2 text-sm text-[var(--muted)]">Buat rencana di <Link href="/kalender-menu" className="text-[var(--green)] underline">Kalender Menu</Link> untuk mulai mengisi papan produksi.</p></div> : visible.map(plan => { const menu = menuMap.get(plan.menu_id); const detail = details[plan.id]; return <article key={plan.id} className="rounded-xl border border-[var(--line)] bg-white p-5"><div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-start"><div className="min-w-0"><p className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">{label(plan.planned_date)}</p><h2 className="mt-1 text-xl font-semibold">{menu?.name ?? "Menu tidak ditemukan"}</h2><p className="mt-1 text-sm text-[var(--muted)]">{plan.portion_count.toLocaleString("id-ID")} porsi{menu?.prep_duration_minutes !== null && menu?.prep_duration_minutes !== undefined ? " · Persiapan "+menu.prep_duration_minutes+" menit" : ""}{menu?.cook_duration_minutes !== null && menu?.cook_duration_minutes !== undefined ? " · Memasak "+menu.cook_duration_minutes+" menit" : ""}</p>{(plan.production_notes || menu?.production_notes) && <p className="mt-3 whitespace-pre-wrap text-sm leading-6">{plan.production_notes || menu?.production_notes}</p>}</div><div className="flex flex-wrap items-center gap-2">{canManage && <select disabled={busy===plan.id} value={plan.status} onChange={e=>void setStatus(plan,e.target.value as Status)} className={input}>{statuses.filter(s=>s.value!=="cancelled").map(s=><option key={s.value} value={s.value}>{s.label}</option>)}</select>}<button onClick={()=>void toggleDetails(plan)} className="rounded-lg border border-[var(--line)] px-3 py-2 text-sm">{expanded===plan.id?"Tutup detail":"Lihat instruksi produksi"}</button></div></div>
+        {loading ? <p className="rounded-xl border border-[var(--line)] bg-white py-12 text-center text-sm text-[var(--muted)]">Memuat antrean produksi...</p> : visible.length === 0 ? <div className="rounded-xl border border-dashed border-[var(--line)] bg-white py-14 text-center"><h2 className="font-semibold">Belum ada antrean produksi</h2><p className="mt-2 text-sm text-[var(--muted)]">Buat rencana di <Link href="/kalender-menu" className="text-[var(--green)] underline">Kalender Menu</Link> untuk mulai mengisi papan produksi.</p></div> : visible.map(plan => { const menu = menuMap.get(plan.menu_id); const detail = details[plan.id]; return (<article key={plan.id} className="rounded-xl border border-[var(--line)] bg-white p-5"><div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-start"><div className="min-w-0"><p className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">{label(plan.planned_date)}</p><h2 className="mt-1 text-xl font-semibold">{menu?.name ?? "Menu tidak ditemukan"}</h2><p className="mt-1 text-sm text-[var(--muted)]">{plan.portion_count.toLocaleString("id-ID")} porsi{menu?.prep_duration_minutes !== null && menu?.prep_duration_minutes !== undefined ? " · Persiapan "+menu.prep_duration_minutes+" menit" : ""}{menu?.cook_duration_minutes !== null && menu?.cook_duration_minutes !== undefined ? " · Memasak "+menu.cook_duration_minutes+" menit" : ""}</p>{(plan.production_notes || menu?.production_notes) && <p className="mt-3 whitespace-pre-wrap text-sm leading-6">{plan.production_notes || menu?.production_notes}</p>}</div><div className="flex flex-wrap items-center gap-2">{canManage && <select disabled={busy===plan.id} value={plan.status} onChange={e=>void setStatus(plan,e.target.value as Status)} className={input}>{statuses.filter(s=>s.value!=="cancelled").map(s=><option key={s.value} value={s.value}>{s.label}</option>)}</select>}<button onClick={()=>void toggleDetails(plan)} className="rounded-lg border border-[var(--line)] px-3 py-2 text-sm">{expanded===plan.id?"Tutup detail":"Lihat instruksi produksi"}</button></div></div>
           {expanded===plan.id && <div>          <div className="mt-5 border-t border-[var(--line)] pt-4">
             <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-semibold">Batch produksi</h3><span className="text-xs text-[var(--muted)]">{batches.filter(b=>b.menu_plan_id===plan.id).length} batch · {remainingPortions(plan).toLocaleString("id-ID")} porsi tersisa</span></div>
             {batches.filter(b=>b.menu_plan_id===plan.id).length===0 ? <p className="mt-2 text-sm text-[var(--muted)]">Belum ada batch. Pecah rencana porsi menjadi satu atau beberapa batch kerja.</p> :
               <div className="mt-3 space-y-2">{batches.filter(b=>b.menu_plan_id===plan.id).map(batch=><div key={batch.id} className="rounded-lg border border-[var(--line)] p-3">
-                <div className="flex flex-wrap items-center justify-between gap-2"><div><p className="text-sm font-semibold">Batch {batch.batch_number} · {batch.portion_count.toLocaleString("id-ID")} porsi</p><p className="mt-1 text-xs text-[var(--muted)]">PIC: {volunteers.find(v=>v.id===batch.assigned_volunteer_id)?.full_name ?? "Belum ditentukan"}</p></div>
+                <div className="flex flex-wrap items-center justify-between gap-2"><div><p className="text-sm font-semibold">Batch {batch.batch_number} · {batch.portion_count.toLocaleString("id-ID")} porsi</p><p className="mt-1 text-xs text-[var(--muted)]">PIC: {volunteers.find(v=>v.id===batch.assigned_volunteer_id)?.full_name ?? "Belum ditentukan"}</p><p className="mt-1 text-xs text-[var(--muted)]">{batch.started_at ? `Mulai ${new Intl.DateTimeFormat("id-ID", { dateStyle: "short", timeStyle: "short" }).format(new Date(batch.started_at))}` : "Belum mulai"}{batch.completed_at ? ` · Selesai ${new Intl.DateTimeFormat("id-ID", { dateStyle: "short", timeStyle: "short" }).format(new Date(batch.completed_at))}` : ""}</p></div>
                 {canManage ? <select disabled={busy===batch.id} value={batch.status} onChange={e=>void updateBatch(batch,e.target.value as Batch["status"])} className={input}>{batchStatuses.map(s=><option key={s.value} value={s.value}>{s.label}</option>)}</select> : <span className="text-xs">{batchStatuses.find(s=>s.value===batch.status)?.label}</span>}</div>
                 {batch.blocker_note && <p className="mt-2 rounded-md bg-amber-50 p-2 text-xs text-amber-900">Hambatan: {batch.blocker_note}</p>}
                 {batch.work_notes && <p className="mt-2 text-xs text-[var(--muted)]">{batch.work_notes}</p>}
+                {detail?.steps.length ? <div className="mt-3 rounded-lg bg-[#f7f8f6] p-3"><p className="text-xs font-semibold">Waktu aktual per tahap</p><div className="mt-2 space-y-2">{detail.steps.map(step => { const recorded = batchStages.find(stage => stage.batch_id === batch.id && stage.step_order === step.step_order); return <div key={step.id} className="flex flex-wrap items-center justify-between gap-2 border-t border-[var(--line)] pt-2"><div><p className="text-xs font-medium">{step.step_order}. {recorded?.title ?? step.title}</p><p className="mt-1 text-xs text-[var(--muted)]">{recorded ? `Mulai ${new Intl.DateTimeFormat("id-ID", { dateStyle: "short", timeStyle: "short" }).format(new Date(recorded.started_at))}${recorded.completed_at ? ` · Selesai ${new Intl.DateTimeFormat("id-ID", { dateStyle: "short", timeStyle: "short" }).format(new Date(recorded.completed_at))}` : " · Sedang berjalan"}` : "Belum dicatat"}</p></div>{canManage && (recorded?.completed_at ? <span className="text-xs text-[var(--muted)]">Selesai</span> : <button disabled={busy===batch.id || batch.status==="completed"} onClick={()=>void recordStage(batch,step,recorded)} className="rounded-md border border-[var(--line)] bg-white px-2.5 py-1.5 text-xs disabled:opacity-50">{recorded ? "Selesaikan tahap" : "Mulai tahap"}</button>)}</div>; })}</div></div> : null}
                 {canManage && <label className="mt-3 block max-w-sm space-y-1 text-xs text-[var(--muted)]">Penanggung jawab<select disabled={busy===batch.id} value={batch.assigned_volunteer_id??""} onChange={e=>void assignBatch(batch,e.target.value)} className={input+" block w-full"}><option value="">Belum ditentukan</option>{volunteers.filter(v=>v.status==="active").map(v=><option key={v.id} value={v.id}>{v.full_name}</option>)}</select></label>}
               </div>)}</div>}
             {canManage && plan.status!=="cancelled" && plan.status!=="completed" && <div className="mt-3 grid gap-2 sm:grid-cols-[150px_1fr_auto]">
@@ -140,11 +177,11 @@ export function ProductionBoardWorkspace({ workspaceId, workspaceName, role }: {
             </div>}
           </div>
 <div className="mt-5 grid gap-4 border-t border-[var(--line)] pt-5 lg:grid-cols-3"><DetailList title="Komposisi bahan" empty="Belum ada bahan." items={(detail?.components??[]).map(x=>({id:x.id,title:x.item_name,meta:(x.category||"lainnya")+" · "+(x.quantity??"—")+" "+(x.unit??""),note:x.preparation_note}))}/><DetailList title="Komposisi bumbu" empty="Belum ada bumbu." items={(detail?.seasonings??[]).map(x=>({id:x.id,title:x.ingredient_name,meta:(x.quantity??"—")+" "+(x.unit??""),note:x.preparation_note}))}/><DetailList title="Tahapan produksi" empty="Belum ada tahapan." items={(detail?.steps??[]).map(x=>({id:x.id,title:x.step_order+". "+x.title,meta:x.duration_minutes===null?"Durasi belum ditentukan":x.duration_minutes+" menit",note:x.instructions+(x.critical_note?" · Titik kritis: "+x.critical_note:"")}))}/></div></div>}
-        </article>; })}
+        </article>); })}
       </section>
       <p className="mt-6 text-xs leading-5 text-[var(--muted)]">Status produksi merupakan catatan operasional manual. Sistem belum mengklaim proses berjalan otomatis atau memverifikasi produksi fisik.</p>
     </div>
   </main>;
 }
-function Metric({label,value}:{label:string;value:number}) { return <article className="rounded-xl border border-[var(--line)] bg-white p-4"><p className="text-xs text-[var(--muted)]">{label}</p><p className="mt-2 text-2xl font-semibold">{value}</p></article>; }
+function Metric({label,value}:{label:string;value:number|string}) { return <article className="rounded-xl border border-[var(--line)] bg-white p-4"><p className="text-xs text-[var(--muted)]">{label}</p><p className="mt-2 text-2xl font-semibold">{value}</p></article>; }
 function DetailList({title,empty,items}:{title:string;empty:string;items:{id:string;title:string;meta:string;note:string|null}[]}) { return <section><h3 className="font-semibold">{title}</h3>{items.length===0?<p className="mt-2 text-sm text-[var(--muted)]">{empty}</p>:<ul className="mt-2 space-y-2">{items.map(item=><li key={item.id} className="rounded-lg bg-[#f7f8f6] p-3"><p className="text-sm font-medium">{item.title}</p><p className="mt-1 text-xs text-[var(--muted)]">{item.meta}</p>{item.note&&<p className="mt-1 whitespace-pre-wrap text-xs leading-5 text-[var(--muted)]">{item.note}</p>}</li>)}</ul>}</section>; }
