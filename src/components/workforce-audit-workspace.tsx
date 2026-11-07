@@ -42,7 +42,7 @@ function changes(row: AuditRow) {
   }));
 }
 
-export function WorkforceAuditWorkspace({ workspaceId, workspaceName, role }: { workspaceId: string; workspaceName: string; role: string }) {
+export function WorkforceAuditWorkspace({ workspaceId, workspaceName, role, timezone }: { workspaceId: string; workspaceName: string; role: string; timezone: string }) {
   const supabase = useMemo(() => createClient(), []);
   const [rows, setRows] = useState<AuditRow[]>([]);
   const [action, setAction] = useState("all");
@@ -70,8 +70,12 @@ export function WorkforceAuditWorkspace({ workspaceId, workspaceName, role }: { 
       .limit(500);
     if (action !== "all") query = query.eq("action", action);
     if (entity !== "all") query = query.eq("entity_type", entity);
-    if (from) query = query.gte("occurred_at", from + "T00:00:00");
-    if (to) query = query.lt("occurred_at", new Date(new Date(to + "T00:00:00").getTime() + 86400000).toISOString());
+    if (from) query = query.gte("occurred_at", new Date(from + "T00:00:00").toISOString());
+    if (to) {
+      const end = new Date(to + "T00:00:00");
+      end.setDate(end.getDate() + 1);
+      query = query.lt("occurred_at", end.toISOString());
+    }
     const result = await query;
     if (request !== sequence.current) return;
     if (result.error) {
@@ -112,7 +116,7 @@ export function WorkforceAuditWorkspace({ workspaceId, workspaceName, role }: { 
           return <article key={row.id} className="rounded-xl border border-[var(--line)] bg-white p-4">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
               <div><div className="flex flex-wrap items-center gap-2"><span className="rounded-full bg-[#f1f4f1] px-2.5 py-1 text-xs font-medium">{entityLabels[row.entity_type]}</span><span className="text-sm font-semibold">{actionLabels[row.action]}</span></div><p className="mt-2 text-xs text-[var(--muted)]">ID data: {row.entity_id}</p></div>
-              <div className="text-xs text-[var(--muted)] sm:text-right"><p>{new Intl.DateTimeFormat("id-ID", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Jakarta" }).format(new Date(row.occurred_at))}</p><p className="mt-1">Pelaku: {row.actor_id ? row.actor_id.slice(0, 8) + "…" : "Akun tidak tersedia"}</p></div>
+              <div className="text-xs text-[var(--muted)] sm:text-right"><p>{new Intl.DateTimeFormat("id-ID", { dateStyle: "medium", timeStyle: "short", timeZone: timezone || "Asia/Jakarta" }).format(new Date(row.occurred_at))}</p><p className="mt-1">Pelaku: {row.actor_id ? row.actor_id.slice(0, 8) + "…" : "Akun tidak tersedia"}</p></div>
             </div>
             {detail.length > 0 && <div className="mt-3 grid gap-2 sm:grid-cols-2">{detail.map((item) => <div key={item.label} className="rounded-lg bg-[#f8f9f7] p-3 text-xs"><p className="font-semibold capitalize">{item.label}</p><p className="mt-1 break-words text-[var(--muted)]">Sebelum: {item.before}</p><p className="mt-1 break-words">Sesudah: {item.after}</p></div>)}</div>}
             {detail.length === 0 && <p className="mt-3 text-xs text-[var(--muted)]">Tidak ada rincian perubahan yang dapat ditampilkan.</p>}
