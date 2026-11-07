@@ -1,8 +1,10 @@
 "use client";
 import { FormEvent, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 export function LoginForm() {
+  const searchParams = useSearchParams();
   const [email,setEmail]=useState(""); const [busy,setBusy]=useState(false);
   const [message,setMessage]=useState(""); const [error,setError]=useState("");
   async function submit(event:FormEvent<HTMLFormElement>) {
@@ -11,7 +13,7 @@ export function LoginForm() {
       const supabase=createClient();
       const {error:authError}=await supabase.auth.signInWithOtp({
         email:email.trim().toLowerCase(),
-        options:{emailRedirectTo:`${window.location.origin}/auth/callback`,shouldCreateUser:true}
+        options:{emailRedirectTo:`${window.location.origin}/auth/callback?next=${encodeURIComponent(searchParams.get("next") || "/")}`,shouldCreateUser:true}
       });
       if(authError) throw authError;
       setMessage("Tautan masuk sudah dikirim. Periksa inbox dan folder spam email Anda.");
