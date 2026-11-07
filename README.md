@@ -12,7 +12,7 @@ A standalone operational management platform for SPPG teams. This project is sep
 - Operational dashboard, audit trail, and workspace permissions
 - Virtual Office for monitoring and delegating work to human-supervised assistant agents
 
-This is not a payroll product. The Gaji Harian field is retained as a workforce attribute and is used only to calculate the scheduled daily workforce indicator for work groups and rosters. There are no payroll runs, payslips, salary disbursement, or payroll approval workflows.
+This is not a payroll product. The Upah Harian field is retained as a workforce attribute and is used only to calculate the scheduled daily workforce indicator for work groups and rosters. There are no payroll runs, payslips, salary disbursement, or payroll approval workflows.
 
 The Menu Bank is composition- and production-focused, not a food-cost calculator. It records protein sources, protein, vegetables, fruit, other ingredients, seasoning composition, preparation notes, and production steps.
 
@@ -34,7 +34,7 @@ The initial implementation is a modular monolith:
 4. Agent status must reflect real runtime events and heartbeats; never simulate live work as real activity.
 5. Keep costs low. Local AI is the default; cloud AI is optional.
 6. Protect personal data with workspace isolation, authorization checks, least privilege, and audit events.
-7. Do not add payroll workflows. Keep Gaji Harian as a workforce planning indicator only.
+7. Do not add payroll workflows. Keep Upah Harian as a workforce planning indicator only.
 
 ## Current modules
 
