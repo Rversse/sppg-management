@@ -34,20 +34,31 @@ returns trigger
 language plpgsql
 set search_path = ''
 as $$
-declare parent_status text;
+declare batch_status text; plan_status text; target_workspace uuid; target_batch uuid;
 begin
-  if tg_op = 'UPDATE' or tg_op = 'DELETE' then
-    select b.status::text, p.status::text
-      into parent_status, strict parent_status
-      from public.production_batches b
-      join public.menu_plans p on p.workspace_id = b.workspace_id and p.id = b.menu_plan_id
-      where b.workspace_id = old.workspace_id and b.id = old.batch_id
-      for update of b, p;
-    if parent_status = 'completed' then
-      raise exception 'Tahap pada batch selesai tidak dapat diubah.'
-        using errcode = '23514';
-    end if;
+  if tg_op = 'DELETE' then
+    target_workspace := old.workspace_id;
+    target_batch := old.batch_id;
+  else
+    target_workspace := new.workspace_id;
+    target_batch := new.batch_id;
   end if;
+
+  select b.status::text, p.status::text
+    into batch_status, plan_status
+    from public.production_batches b
+    join public.menu_plans p on p.workspace_id = b.workspace_id and p.id = b.menu_plan_id
+    where b.workspace_id = target_workspace and b.id = target_batch
+    for update of b, p;
+
+  if not found then
+    raise exception 'Batch produksi tidak ditemukan.' using errcode = '23503';
+  end if;
+  if batch_status = 'completed' or plan_status = 'completed' then
+    raise exception 'Tahap pada batch atau rencana yang sudah selesai tidak dapat diubah.'
+      using errcode = '23514';
+  end if;
+
   if tg_op = 'DELETE' then return old; end if;
   return new;
 end;
