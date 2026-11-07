@@ -10,6 +10,7 @@ type Plan = { id: string; menu_id: string; planned_date: string; portion_count: 
 type Menu = { id: string; name: string; description: string | null; prep_duration_minutes: number | null; cook_duration_minutes: number | null; production_notes: string | null };
 type Batch = { id: string; menu_plan_id: string; batch_number: number; portion_count: number; status: "queued" | "preparing" | "blocked" | "ready" | "completed" | "cancelled"; assigned_volunteer_id: string | null; blocker_note: string | null; work_notes: string | null; started_at: string | null; completed_at: string | null };
 type Volunteer = { id: string; full_name: string; status: "active" | "inactive" };
+type BatchStage = { id: string; batch_id: string; step_order: number; title: string; started_at: string; completed_at: string | null };
 type Detail = { components: { id: string; item_name: string; category: string; quantity: number | null; unit: string | null; preparation_note: string | null }[]; seasonings: { id: string; ingredient_name: string; quantity: number | null; unit: string | null; preparation_note: string | null }[]; steps: { id: string; step_order: number; title: string; instructions: string; duration_minutes: number | null; critical_note: string | null }[] };
 const batchStatuses = [{ value: "queued", label: "Antre" }, { value: "preparing", label: "Dikerjakan" }, { value: "blocked", label: "Terhambat" }, { value: "ready", label: "Siap" }, { value: "completed", label: "Selesai" }, { value: "cancelled", label: "Dibatalkan" }] as const;
 const statuses: { value: Status; label: string }[] = [{ value: "planned", label: "Terencana" }, { value: "preparing", label: "Diproses" }, { value: "ready", label: "Siap" }, { value: "completed", label: "Selesai" }, { value: "cancelled", label: "Dibatalkan" }];
@@ -24,6 +25,7 @@ export function ProductionBoardWorkspace({ workspaceId, workspaceName, role }: {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [menus, setMenus] = useState<Menu[]>([]);
   const [batches, setBatches] = useState<Batch[]>([]);
+  const [batchStages, setBatchStages] = useState<BatchStage[]>([]);
   const [volunteers, setVolunteers] = useState<Volunteer[]>([]);
   const [batchPortions, setBatchPortions] = useState<Record<string, string>>({});
   const [batchAssignees, setBatchAssignees] = useState<Record<string, string>>({});
@@ -54,15 +56,16 @@ export function ProductionBoardWorkspace({ workspaceId, workspaceName, role }: {
   const load = useCallback(async () => {
     const sequence = ++loadSequence.current;
     setLoading(true); setError("");
-    const [p, m, b, v] = await Promise.all([
+    const [p, m, b, v, st] = await Promise.all([
       supabase.from("menu_plans").select("id,menu_id,planned_date,portion_count,status,production_notes").eq("workspace_id", workspaceId).gte("planned_date", from).lte("planned_date", to).order("planned_date").order("created_at"),
       supabase.from("menu_items").select("id,name,description,prep_duration_minutes,cook_duration_minutes,production_notes").eq("workspace_id", workspaceId),
       supabase.from("production_batches").select("id,menu_plan_id,batch_number,portion_count,status,assigned_volunteer_id,blocker_note,work_notes,started_at,completed_at").eq("workspace_id", workspaceId).order("batch_number"),
-      supabase.from("volunteers").select("id,full_name,status").eq("workspace_id", workspaceId).order("full_name")
+      supabase.from("volunteers").select("id,full_name,status").eq("workspace_id", workspaceId).order("full_name"),
+      supabase.from("production_batch_stages").select("id,batch_id,step_order,title,started_at,completed_at").eq("workspace_id", workspaceId).order("step_order")
     ]);
     if (sequence !== loadSequence.current) return;
-    if (p.error || m.error || b.error || v.error) setError(p.error?.message ?? m.error?.message ?? b.error?.message ?? v.error?.message ?? "Gagal memuat antrean produksi.");
-    else { setPlans(p.data ?? []); setMenus(m.data ?? []); setBatches(b.data ?? []); setVolunteers(v.data ?? []); }
+    if (p.error || m.error || b.error || v.error || st.error) setError(p.error?.message ?? m.error?.message ?? b.error?.message ?? v.error?.message ?? st.error?.message ?? "Gagal memuat antrean produksi.");
+    else { setPlans(p.data ?? []); setMenus(m.data ?? []); setBatches(b.data ?? []); setVolunteers(v.data ?? []); setBatchStages(st.data ?? []); }
     setLoading(false);
   }, [supabase, workspaceId, from, to]);
   useEffect(() => { void load(); }, [load]);
@@ -113,6 +116,19 @@ export function ProductionBoardWorkspace({ workspaceId, workspaceName, role }: {
     setBusy("");
   }
 
+  async function recordStage(batch: Batch, step: Detail["steps"][number], existing?: BatchStage) {
+    if (batch.status === "completed") return;
+    setBusy(batch.id); setError(""); setNotice("");
+    const user = (await supabase.auth.getUser()).data.user;
+    const now = new Date().toISOString();
+    const result = existing
+      ? await supabase.from("production_batch_stages").update({ completed_at: now, completed_by: user?.id ?? null }).eq("id", existing.id).eq("workspace_id", workspaceId).is("completed_at", null)
+      : await supabase.from("production_batch_stages").insert({ workspace_id: workspaceId, batch_id: batch.id, step_order: step.step_order, title: step.title, started_by: user?.id ?? null });
+    if (result.error) setError(result.error.message);
+    else { setNotice(existing ? "Tahap produksi ditandai selesai." : "Waktu mulai tahap produksi dicatat."); await load(); }
+    setBusy("");
+  }
+
   async function assignBatch(batch: Batch, volunteerId: string) {
     const user = (await supabase.auth.getUser()).data.user;
     setBusy(batch.id); setError("");
@@ -151,6 +167,7 @@ export function ProductionBoardWorkspace({ workspaceId, workspaceName, role }: {
                 {canManage ? <select disabled={busy===batch.id} value={batch.status} onChange={e=>void updateBatch(batch,e.target.value as Batch["status"])} className={input}>{batchStatuses.map(s=><option key={s.value} value={s.value}>{s.label}</option>)}</select> : <span className="text-xs">{batchStatuses.find(s=>s.value===batch.status)?.label}</span>}</div>
                 {batch.blocker_note && <p className="mt-2 rounded-md bg-amber-50 p-2 text-xs text-amber-900">Hambatan: {batch.blocker_note}</p>}
                 {batch.work_notes && <p className="mt-2 text-xs text-[var(--muted)]">{batch.work_notes}</p>}
+                {detail?.steps.length ? <div className="mt-3 rounded-lg bg-[#f7f8f6] p-3"><p className="text-xs font-semibold">Waktu aktual per tahap</p><div className="mt-2 space-y-2">{detail.steps.map(step => { const recorded = batchStages.find(stage => stage.batch_id === batch.id && stage.step_order === step.step_order); return <div key={step.id} className="flex flex-wrap items-center justify-between gap-2 border-t border-[var(--line)] pt-2"><div><p className="text-xs font-medium">{step.step_order}. {recorded?.title ?? step.title}</p><p className="mt-1 text-xs text-[var(--muted)]">{recorded ? `Mulai ${new Intl.DateTimeFormat("id-ID", { dateStyle: "short", timeStyle: "short" }).format(new Date(recorded.started_at))}${recorded.completed_at ? ` · Selesai ${new Intl.DateTimeFormat("id-ID", { dateStyle: "short", timeStyle: "short" }).format(new Date(recorded.completed_at))}` : " · Sedang berjalan"}` : "Belum dicatat"}</p></div>{canManage && (recorded?.completed_at ? <span className="text-xs text-[var(--muted)]">Selesai</span> : <button disabled={busy===batch.id || batch.status==="completed"} onClick={()=>void recordStage(batch,step,recorded)} className="rounded-md border border-[var(--line)] bg-white px-2.5 py-1.5 text-xs disabled:opacity-50">{recorded ? "Selesaikan tahap" : "Mulai tahap"}</button>)}</div>; })}</div></div> : null}
                 {canManage && <label className="mt-3 block max-w-sm space-y-1 text-xs text-[var(--muted)]">Penanggung jawab<select disabled={busy===batch.id} value={batch.assigned_volunteer_id??""} onChange={e=>void assignBatch(batch,e.target.value)} className={input+" block w-full"}><option value="">Belum ditentukan</option>{volunteers.filter(v=>v.status==="active").map(v=><option key={v.id} value={v.id}>{v.full_name}</option>)}</select></label>}
               </div>)}</div>}
             {canManage && plan.status!=="cancelled" && plan.status!=="completed" && <div className="mt-3 grid gap-2 sm:grid-cols-[150px_1fr_auto]">
