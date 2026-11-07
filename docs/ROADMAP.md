@@ -29,7 +29,8 @@ The application is not a payroll system. Do not add payroll runs, payslips, sala
 - [x] Attendance correction reason and review trail (database-enforced reason, immutable before/after capture, HR review queue)
 - [x] Volunteer CSV import/export with validation, duplicate detection, and preview
 - [x] Bulk attendance actions (select all and per-section actions)
-- [ ] Workspace member invitations, roles, and permission management
+- [x] Workspace member directory and role management (owner/admin boundaries; final-owner protection)
+- [x] Email-bound workspace invitations with one-time token, 7-day expiry, revocation, and authenticated acceptance
 
 ## Phase 2 — Menu and production operations
 - [x] Menu bank catalog and status lifecycle
@@ -80,4 +81,4 @@ The application is not a payroll system. Do not add payroll runs, payslips, sala
 
 The dedicated Supabase project has workforce, attendance, audit, menu-bank, workspace-bootstrap, volunteer-group, schedule-snapshot, and RLS-hardening migrations applied. The preview has passwordless auth, first-workspace onboarding, volunteer CRUD, daily attendance, menu composition/seasoning/production editors, recurring group schedules, effective-dated roster snapshots, and a daily roster. Attendance history and CSV export, plus date-based menu planning with a weekly calendar and production status lifecycle, plus a production board that reads menu plans and displays recipe components, seasonings, production instructions, batch splitting, volunteer assignment, and blocked-reason tracking with audit history, have now been added to the preview branch.
 
-The preview now includes workforce management, attendance, schedules, daily roster, volunteer CSV import/export, bulk attendance, audit trail, menu bank, menu calendar, production board with batch controls, production analytics, and date-based workforce reports. Remaining release work includes attendance correction review, workspace member invitations and role management, stage-level production timing, menu duplication/versioning, backup/restore, accessibility and security review, and full Virtual Office runtime. Do not merge to main or describe the platform as production-ready until those release gates are completed. Do not merge to main or describe the platform as production-ready solely because the initial manual flows work.
+The preview now includes workforce management, attendance, schedules, daily roster, volunteer CSV import/export, bulk attendance, audit trail, menu bank, menu calendar, production board with batch controls, production analytics, and date-based workforce reports. Remaining release work includes attendance correction review, workspace invitation delivery configuration, stage-level production timing, menu duplication/versioning, backup/restore, accessibility and security review, and full Virtual Office runtime. Do not merge to main or describe the platform as production-ready until those release gates are completed. Do not merge to main or describe the platform as production-ready solely because the initial manual flows work.
