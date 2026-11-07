@@ -11,10 +11,10 @@ create table public.attendance_correction_reviews (
   correction_reason text not null check (char_length(btrim(correction_reason)) between 5 and 1000),
   before_data jsonb not null,
   after_data jsonb not null,
-  requested_by uuid references auth.users(id) on delete set null,
+  requested_by uuid,
   requested_at timestamptz not null default now(),
   review_status text not null default 'pending' check (review_status in ('pending','reviewed')),
-  reviewed_by uuid references auth.users(id) on delete set null,
+  reviewed_by uuid,
   reviewed_at timestamptz,
   review_note text check (review_note is null or char_length(review_note) <= 1000),
   constraint attendance_correction_review_state_check check (
