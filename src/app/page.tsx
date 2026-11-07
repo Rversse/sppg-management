@@ -33,6 +33,7 @@ export default async function Home() {
     { title: "Grup & jadwal kerja", description: "Atur grup relawan, jam kerja, hari libur, dan total gaji harian terjadwal.", href: "/jadwal-kerja", icon: Clock3 },
     { title: "Roster harian", description: "Bandingkan personel terjadwal dengan catatan kehadiran aktual.", href: "/roster-harian", icon: ClipboardCheck },
     { title: "Riwayat absensi", description: "Telusuri catatan kehadiran lintas tanggal dan ekspor CSV.", href: "/riwayat-absensi", icon: CalendarDays },
+    ...( ["owner", "admin", "hr"].includes(role) ? [{ title: "Audit trail", description: "Telusuri siapa mengubah data relawan, absensi, dan bagian kerja.", href: "/audit-trail", icon: ClipboardCheck }] : [] ),
   ];
 
   return (
