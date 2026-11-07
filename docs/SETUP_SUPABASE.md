@@ -72,7 +72,7 @@ For production email delivery, configure a trusted custom SMTP provider and appr
 
 ## Verification performed
 
-- The connected project migration history was rechecked after applying the six pending migrations and two subsequent feature migrations; all 28 expected migrations are recorded.
+- The connected project migration history was rechecked after applying the six pending migrations and three subsequent feature migrations; all 29 expected migrations are recorded.
 - A live catalog query confirmed RLS is enabled on all 15 core application tables checked, including workspaces, memberships, workforce, attendance, audit, menu, schedule snapshots, and production history.
 - Security Advisor reports two warnings: the workspace-creation SECURITY DEFINER RPC is intentionally callable by `authenticated` and is scoped to the current user; leaked-password protection is disabled and should be enabled in Supabase Auth settings before production use.
 - Performance Advisor reports 24 unused indexes on the still-small project. Do not remove them based on this low-volume signal alone; reassess after representative data and query traffic exist.
