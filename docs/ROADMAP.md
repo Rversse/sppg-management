@@ -45,7 +45,7 @@ The application is not a payroll system. Do not add payroll runs, payslips, sala
 - [x] Date-range operational summaries by menu with CSV export
 - [x] Indicative menu-duration estimate versus actual batch-duration comparison
 - [x] Stage-level actual duration capture (explicit per-stage start/finish events with recipe-step snapshots)
-- [ ] Menu duplication/versioning for recurring recipes
+- [x] Menu duplication/versioning for recurring recipes (atomic clone of composition, seasonings, and production steps; immutable superseded versions)
 
 ## Phase 3 — Virtual Office
 - [ ] Define agent runtime boundary and local Ollama connection
